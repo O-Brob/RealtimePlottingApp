@@ -1,20 +1,87 @@
 <Window xmlns="https://github.com/avaloniaui"
+        xmlns:sp="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:RealtimePlottingApp.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="680" d:DesignHeight="450"
+        ExtendClientAreaToDecorationsHint="True"
         x:Class="RealtimePlottingApp.Views.MainWindow"
-        x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="RealtimePlottingApp">
+        Title="Realtime Plotting App">
+    <!--   <sp:AvaPlot x:Name="Plot" />   -->
+    <!--  GRAPHICAL INTERFACE  -->
+    <Grid RowDefinitions="Auto,*,Auto">
 
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel/>
-    </Design.DataContext>
+        <!-- Header -->
+        <Grid Grid.Row="0" Height="30" ColumnDefinitions="Auto,*,Auto,*">
+            <DockPanel Grid.Column="0">
+                <Menu DockPanel.Dock="Top">
 
-    <TextBlock Text="{Binding Greeting}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <!-- "File" Dropdown -->
+                    <MenuItem Header = "_File" Margin="0,0,5,0">
+                        <MenuItem Header="Save Config" />
+                        <MenuItem Header="Load Config" />
+                    </MenuItem>
 
+                    <!-- "View" Dropdown -->
+                    <MenuItem Header = "_View" Margin="0,0,0,0">
+                        <MenuItem Header="Toggle Sidebar" />
+                        <MenuItem Header="Show Line graph" />
+                        <MenuItem Header="Show Block diagram" />
+                    </MenuItem>
+                    
+                </Menu>
+            </DockPanel>
+            <Label Grid.Column="2" VerticalAlignment="Center" FontFamily="Segoe UI" 
+            HorizontalAlignment="Center" FontWeight="SemiBold">
+            Realtime Plotting App
+            </Label>
+        </Grid>
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1">
+            <Grid ColumnDefinitions="Auto,*">
+
+                <!-- Sidebar -->
+                <Border Grid.Column="0" Background="#EEEEEE" 
+                Margin="5" Padding="5" CornerRadius="5">
+                    <Border.Effect>
+                        <DropShadowEffect Color="Black" Opacity="0.1" BlurRadius=""/>
+                    </Border.Effect>
+                
+                    <Grid RowDefinitions="Auto, Auto">
+                        <Label FontFamily="Segoe UI" Grid.Row="0" HorizontalAlignment="Center" FontWeight="SemiBold">
+                            Communication Interface:
+                        </Label>
+
+                        <ComboBox Grid.Row="1" SelectedIndex="0" MaxDropDownHeight="100" 
+                                HorizontalAlignment="Center" Margin="0,5,0,0" Width="85"> 
+                            <ComboBoxItem>CAN</ComboBoxItem>
+                            <ComboBoxItem>UART</ComboBoxItem>
+                        </ComboBox>
+                    </Grid>
+                </Border>
+
+                <!-- Graph/Diagram Grid -->
+                <Grid Grid.Column="1" RowDefinitions="*,*">
+                    <sp:AvaPlot x:Name="Plot" Grid.Row="0" IsVisible="True"/>
+
+                    <sp:AvaPlot x:Name="Plot2" Grid.Row="1" IsVisible="True"/>
+                </Grid>
+            </Grid>
+        </Grid>
+
+
+        <!-- Footer -->
+        <Grid Grid.Row="2" Background="#EEEEEE" Height="30" ColumnDefinitions="Auto,*,Auto">
+            <Label FontFamily="Segoe UI" Grid.Column="0" 
+            VerticalAlignment="Center" FontWeight="ExtraLight" >
+                CAN: Disconnected
+            </Label>
+            
+            <Rectangle Fill="#EEEEEE" Grid.Column="2" Width="30" />
+            
+        </Grid>
+
+    </Grid>
+    
 </Window>
