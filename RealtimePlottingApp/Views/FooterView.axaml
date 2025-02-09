@@ -1,0 +1,25 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="RealtimePlottingApp.Views.FooterView"
+             x:DataType="viewmodel:FooterViewModel">
+    
+    <!-- Set Data Context -->
+    <UserControl.DataContext>
+        <viewmodel:FooterViewModel />
+    </UserControl.DataContext>
+    
+    <!--  FOOTER DEFINITION  -->
+    <Grid Background="#EEEEEE" Height="30" ColumnDefinitions="Auto,*,Auto">
+        <Label FontFamily="Segoe UI" Grid.Column="0" 
+               VerticalAlignment="Center" FontWeight="ExtraLight" >
+            CAN: Disconnected
+        </Label>
+            
+        <Rectangle Fill="#EEEEEE" Grid.Column="2" Width="30" />
+    </Grid>
+    
+</UserControl>
