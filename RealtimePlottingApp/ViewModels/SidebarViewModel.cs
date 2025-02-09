@@ -1,11 +1,9 @@
 ﻿using ReactiveUI;
 using System;
-using System.Windows.Input;
-using Avalonia.Threading;
 
 namespace RealtimePlottingApp.ViewModels
 {
-    // Assume that ViewModelBase inherits from ReactiveObject.
+    // ViewModelBase inherits from ReactiveObject.
     public class SidebarViewModel : ViewModelBase
     {
         // Private variables:
@@ -16,8 +14,6 @@ namespace RealtimePlottingApp.ViewModels
         // when the header viewmodel sends an update of it.
         public SidebarViewModel()
         {
-            // Initialize commands using ReactiveCommand since all of them are Commands.
-            
             // Initialize Messagebus for sidebar toggling via HeaderViewModel.
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {

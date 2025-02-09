@@ -6,7 +6,8 @@ using ScottPlot.Avalonia;
 
 namespace RealtimePlottingApp.ViewModels;
 
-public class GraphDiagramViewModel
+// ViewModelBase inherits from ReactiveObject.
+public class GraphDiagramViewModel : ViewModelBase
 {
     private readonly Timer _timer;
     private readonly DataGenerator _dataGenerator;

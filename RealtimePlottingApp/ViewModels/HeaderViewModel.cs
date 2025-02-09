@@ -1,11 +1,10 @@
 ﻿using ReactiveUI;
 using System;
 using System.Windows.Input;
-using Avalonia.Threading;
 
 namespace RealtimePlottingApp.ViewModels
 {
-    // Assume that ViewModelBase inherits from ReactiveObject.
+    // ViewModelBase inherits from ReactiveObject.
     public class HeaderViewModel : ViewModelBase
     {
         // The constructor is used to initialize our commands.
