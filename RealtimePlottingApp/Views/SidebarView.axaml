@@ -1,0 +1,35 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="RealtimePlottingApp.Views.SidebarView"
+             x:DataType="viewmodel:SidebarViewModel">
+    
+    <!-- Set Data Context -->
+    <UserControl.DataContext>
+        <viewmodel:SidebarViewModel />
+    </UserControl.DataContext>
+    
+    <!--  SIDEBAR DEFINITION  -->
+    <Border Background="#EEEEEE" 
+            Margin="5" Padding="5" CornerRadius="5">
+        <Border.Effect>
+            <DropShadowEffect Color="Black" Opacity="0.1" BlurRadius=""/>
+        </Border.Effect>
+                
+        <Grid RowDefinitions="Auto, Auto">
+            <Label FontFamily="Segoe UI" Grid.Row="0" HorizontalAlignment="Center" FontWeight="SemiBold">
+                Communication Interface:
+            </Label>
+
+            <ComboBox Grid.Row="1" SelectedIndex="0" MaxDropDownHeight="100" 
+                      HorizontalAlignment="Center" Margin="0,5,0,0" Width="85"> 
+                <ComboBoxItem>CAN</ComboBoxItem>
+                <ComboBoxItem>UART</ComboBoxItem>
+            </ComboBox>
+        </Grid>
+    </Border>
+    
+</UserControl>
