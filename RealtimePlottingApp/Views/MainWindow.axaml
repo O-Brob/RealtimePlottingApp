@@ -3,39 +3,24 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:view="clr-namespace:RealtimePlottingApp.Views"
+        xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
         mc:Ignorable="d" d:DesignWidth="680" d:DesignHeight="450"
         ExtendClientAreaToDecorationsHint="True"
         x:Class="RealtimePlottingApp.Views.MainWindow"
+        x:DataType="viewmodel:MainWindowViewModel"
         Title="Realtime Plotting App">
-    <!--   <sp:AvaPlot x:Name="Plot" />   -->
+
+    <!-- Set Data Context -->
+    <Window.DataContext>
+        <viewmodel:MainWindowViewModel />
+    </Window.DataContext>
+    
     <!--  GRAPHICAL INTERFACE  -->
     <Grid RowDefinitions="Auto,*,Auto">
 
         <!-- Header -->
-        <Grid Grid.Row="0" Height="30" ColumnDefinitions="Auto,*,Auto,*">
-            <DockPanel Grid.Column="0">
-                <Menu DockPanel.Dock="Top">
-
-                    <!-- "File" Dropdown -->
-                    <MenuItem Header = "_File" Margin="0,0,5,0">
-                        <MenuItem Header="Save Config" />
-                        <MenuItem Header="Load Config" />
-                    </MenuItem>
-
-                    <!-- "View" Dropdown -->
-                    <MenuItem Header = "_View" Margin="0,0,0,0">
-                        <MenuItem Header="Toggle Sidebar" />
-                        <MenuItem Header="Show Line graph" />
-                        <MenuItem Header="Show Block diagram" />
-                    </MenuItem>
-                    
-                </Menu>
-            </DockPanel>
-            <Label Grid.Column="2" VerticalAlignment="Center" FontFamily="Segoe UI" 
-            HorizontalAlignment="Center" FontWeight="SemiBold">
-            Realtime Plotting App
-            </Label>
-        </Grid>
+        <view:HeaderView Grid.Row="0" />
 
         <!-- Main Content -->
         <Grid Grid.Row="1">
@@ -79,7 +64,6 @@
             </Label>
             
             <Rectangle Fill="#EEEEEE" Grid.Column="2" Width="30" />
-            
         </Grid>
 
     </Grid>

@@ -1,0 +1,41 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="RealtimePlottingApp.Views.HeaderView"
+             x:DataType="viewmodel:HeaderViewModel">
+    
+    <!-- Set Data Context -->
+    <UserControl.DataContext>
+        <viewmodel:HeaderViewModel />
+    </UserControl.DataContext>
+    
+    <!--  HEADER DEFINITION  -->
+    <Grid Height="30" ColumnDefinitions="Auto,*,Auto,*">
+        <DockPanel Grid.Column="0">
+            <Menu DockPanel.Dock="Top">
+
+                <!-- "File" Dropdown -->
+                <MenuItem Header = "_File" Margin="0,0,5,0">
+                    <MenuItem Header="Save Config" Command="{Binding SaveConfigCommand}" />
+                    <MenuItem Header="Load Config" Command="{Binding LoadConfigCommand}" />
+                </MenuItem>
+
+                <!-- "View" Dropdown -->
+                <MenuItem Header = "_View" Margin="0,0,0,0">
+                    <MenuItem Header="Toggle Sidebar" Command="{Binding ToggleSidebarCommand}" />
+                    <MenuItem Header="Show Line Graph" Command="{Binding ShowLineGraphCommand}" />
+                    <MenuItem Header="Show Block Diagram" Command="{Binding ShowBlockDiagramCommand}" />
+                </MenuItem>
+                    
+            </Menu>
+        </DockPanel>
+        <Label Grid.Column="2" VerticalAlignment="Center" FontFamily="Segoe UI" 
+               HorizontalAlignment="Center" FontWeight="SemiBold">
+            Realtime Plotting App
+        </Label>
+    </Grid>
+    
+</UserControl>
