@@ -1,5 +1,4 @@
 <Window xmlns="https://github.com/avaloniaui"
-        xmlns:sp="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -30,11 +29,8 @@
                 <view:SidebarView Grid.Column="0" IsVisible="true"/>
 
                 <!-- Graph/Diagram Grid -->
-                <Grid Grid.Column="1" RowDefinitions="*,*">
-                    <sp:AvaPlot x:Name="Plot" Grid.Row="0" IsVisible="True"/>
-
-                    <sp:AvaPlot x:Name="Plot2" Grid.Row="1" IsVisible="True"/>
-                </Grid>
+                <view:GraphDiagramView Grid.Column="1"/>
+                
             </Grid>
         </Grid>
 
