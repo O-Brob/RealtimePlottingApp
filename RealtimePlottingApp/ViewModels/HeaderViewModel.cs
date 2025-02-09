@@ -45,21 +45,13 @@ namespace RealtimePlottingApp.ViewModels
         }
         
         // ==================== TOGGLESIDEBAR ==================== //
-        // Private boolean holding boolean for if sidebar should show.
-        private bool _showSidebar = true;
-
-        // Getter/Setter for showSidebar
-        public bool ShowSidebar
-        {
-            get => _showSidebar;
-            set => _showSidebar = value;
-        }
         
         // Command handler for toggling the sidebar.
         private void ToggleSidebar()
         {
-            ShowSidebar = !ShowSidebar;
-            Console.WriteLine($"ShowSidebar: {_showSidebar}");
+            // Sends message on bus for SidebarViewModel to receive.
+            MessageBus.Current.SendMessage("ToggleSidebar");
+            Console.WriteLine($"ToggleSidebar executed");
         }
         
         // ==================== SHOWLINEGRAPH ==================== //

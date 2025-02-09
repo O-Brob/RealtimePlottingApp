@@ -14,7 +14,8 @@
     
     <!--  SIDEBAR DEFINITION  -->
     <Border Background="#EEEEEE" 
-            Margin="5" Padding="5" CornerRadius="5">
+            Margin="5" Padding="5" CornerRadius="5"
+            IsVisible="{Binding ShowSidebar}">
         <Border.Effect>
             <DropShadowEffect Color="Black" Opacity="0.1" BlurRadius=""/>
         </Border.Effect>
