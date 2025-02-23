@@ -12,18 +12,17 @@ namespace RealtimePlottingApp.Services
     /// </summary>
     public class DataGenerator
     {
-        private readonly List<double> _xData = new();
-        private readonly List<double> _yData = new();
+        private readonly List<uint> _xData = new();
+        private readonly List<uint> _yData = new();
         private readonly Random _random = new();
-        // NON-ACCURATE time!!!, just to have some incrementing made up value
-        private double _time = 0;
+        private uint _counter = 0;
         private bool _dataReady = false;
 
-        public event Action? DataAvailable; // to allow subscribing to when new data is availalble
+        public event Action? DataAvailable; // Allows subscribing to when new data is available
 
         // Public "getters"
-        public IReadOnlyList<double> XData => _xData;
-        public IReadOnlyList<double> YData => _yData;
+        public IReadOnlyList<uint> XData => _xData;
+        public IReadOnlyList<uint> YData => _yData;
         public bool DataReady => _dataReady;
 
         public void Start()
@@ -40,17 +39,19 @@ namespace RealtimePlottingApp.Services
             while (true)
             {
                 Thread.Sleep(1); // Simulate data generation delay (1 ms)
-
+                //for(int i = 0; i < 100000; i++){}
+                
                 lock (_xData)
                 {
-                    _time += 0.1;
-                    double newY = _random.NextDouble() * 10;
-
-                    _xData.Add(_time);
+                    _counter++;
+                    uint newX = _counter;
+                    // Generate a random integer between 0 and 10
+                    uint newY = (uint)_random.Next(0, 11);
+                    _xData.Add(newX);
                     _yData.Add(newY);
                 }
 
-                _dataReady = true; // Signal new data is available
+                _dataReady = true; // Signal that new data is available
                 DataAvailable?.Invoke();
             }
         }
