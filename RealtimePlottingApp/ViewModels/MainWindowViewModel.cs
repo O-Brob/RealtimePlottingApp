@@ -1,6 +1,9 @@
-﻿namespace RealtimePlottingApp.ViewModels;
+﻿
 
-public partial class MainWindowViewModel : ViewModelBase
+namespace RealtimePlottingApp.ViewModels
 {
-    public string Greeting { get; } = "Welcome to Avalonia!";
+    public class MainWindowViewModel : ViewModelBase
+    {
+        
+    }
 }
