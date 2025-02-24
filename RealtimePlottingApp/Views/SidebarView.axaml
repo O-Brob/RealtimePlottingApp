@@ -14,22 +14,101 @@
     
     <!--  SIDEBAR DEFINITION  -->
     <Border Background="#EEEEEE" 
-            Margin="5" Padding="5" CornerRadius="5"
+            Margin="5" 
+            Padding="5" 
+            CornerRadius="5"
             IsVisible="{Binding ShowSidebar}">
         <Border.Effect>
-            <DropShadowEffect Color="Black" Opacity="0.1" BlurRadius=""/>
+            <DropShadowEffect Color="Black" 
+                              Opacity="0.1" 
+                              BlurRadius=""/>
         </Border.Effect>
                 
-        <Grid RowDefinitions="Auto, Auto">
-            <Label FontFamily="Segoe UI" Grid.Row="0" HorizontalAlignment="Center" FontWeight="SemiBold">
+        <Grid RowDefinitions="Auto, Auto, Auto, Auto, *, Auto">
+            <Label FontFamily="Segoe UI" 
+                   Grid.Row="0" 
+                   HorizontalAlignment="Center" 
+                   FontWeight="SemiBold">
+                
                 Communication Interface:
             </Label>
 
-            <ComboBox Grid.Row="1" SelectedIndex="0" MaxDropDownHeight="100" 
-                      HorizontalAlignment="Center" Margin="0,5,0,0" Width="85"> 
+            <!-- ComboBox to select CAN or UART -->
+            <ComboBox Grid.Row="1" 
+                      SelectedIndex="0"
+                      SelectedItem="{Binding SelectedCommunicationInterface}"
+                      MaxDropDownHeight="100" 
+                      HorizontalAlignment="Center" 
+                      Margin="0,5,0,0" 
+                      Width="85">
                 <ComboBoxItem>CAN</ComboBoxItem>
                 <ComboBoxItem>UART</ComboBoxItem>
             </ComboBox>
+            
+            <!-- Elements to show if CAN is selected -->
+            <StackPanel Grid.Row="2"
+                        IsVisible="{Binding IsCanSelected}">
+                <TextBlock HorizontalAlignment="Center"
+                           Margin="0,10,0,0">
+                    CAN CONFIG TODO:
+                </TextBlock>
+                <TextBox Watermark="Some CAN input"></TextBox>
+            </StackPanel>
+            
+            <!-- Elements to show if UART is selected -->
+            <StackPanel Grid.Row="3"
+                        IsVisible="{Binding IsUartSelected}">
+                <!-- COM Port: -->
+                <TextBlock HorizontalAlignment="Center"
+                           Margin="0,10,0,0">
+                    COM Port:
+                </TextBlock>
+                <TextBox Watermark="e.g. COM1, /dev/ttyS0"
+                         Margin="0,5,0,0"></TextBox>
+                
+                <!-- BaudRate Port: -->
+                <TextBlock HorizontalAlignment="Center"
+                           Margin="0,10,0,0">
+                    Baud rate:
+                </TextBlock>
+                <NumericUpDown Watermark="e.g. 115200"
+                               Increment="100"
+                               Minimum="0"
+                               Margin="0,5,0,0"></NumericUpDown>
+                
+                <!-- Number of unique variables -->
+                <TextBlock HorizontalAlignment="Center"
+                           Margin="0,10,0,0">
+                    Unique variables(TODO!!!):
+                </TextBlock>
+                <NumericUpDown Value="1"
+                               Increment="1"
+                               Minimum="1"
+                               Margin="0,5,0,0"></NumericUpDown>
+                
+                <!-- Payload Data Size: -->
+                <TextBlock HorizontalAlignment="Center"
+                           Margin="0,10,0,0">
+                    Payload data size:
+                </TextBlock>
+                <ComboBox SelectedIndex="0"
+                          MaxDropDownHeight="100"
+                          HorizontalAlignment="Center"
+                          Width="90"
+                          Margin="0,5,0,0">
+                    <ComboBoxItem>8 bits</ComboBoxItem>
+                    <ComboBoxItem>16 bits</ComboBoxItem>
+                    <ComboBoxItem>32 bits</ComboBoxItem>
+                </ComboBox>
+            </StackPanel>
+            
+            <!-- Connect Button: -->
+            <Button Grid.Row="5"
+                    HorizontalAlignment="Center"
+                    Margin="0,0,0,10"
+                    IsEnabled="False">
+                Connect
+            </Button>
         </Grid>
     </Border>
     
