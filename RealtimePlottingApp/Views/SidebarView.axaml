@@ -35,7 +35,7 @@
 
             <!-- ComboBox to select CAN or UART -->
             <ComboBox Grid.Row="1" 
-                      SelectedIndex="0"
+                      SelectedIndex="1"
                       SelectedItem="{Binding SelectedCommunicationInterface}"
                       MaxDropDownHeight="100" 
                       HorizontalAlignment="Center" 
@@ -64,7 +64,8 @@
                     COM Port:
                 </TextBlock>
                 <TextBox Watermark="e.g. COM1, /dev/ttyS0"
-                         Margin="0,5,0,0"></TextBox>
+                         Margin="0,5,0,0"
+                         Text="{Binding ComPortInput}"></TextBox>
                 
                 <!-- BaudRate Port: -->
                 <TextBlock HorizontalAlignment="Center"
@@ -74,12 +75,13 @@
                 <NumericUpDown Watermark="e.g. 115200"
                                Increment="100"
                                Minimum="0"
-                               Margin="0,5,0,0"></NumericUpDown>
+                               Margin="0,5,0,0"
+                               Value="{Binding BaudRateInput}"></NumericUpDown>
                 
                 <!-- Number of unique variables -->
                 <TextBlock HorizontalAlignment="Center"
                            Margin="0,10,0,0">
-                    Unique variables(TODO!!!):
+                    Unique variables(TODO!):
                 </TextBlock>
                 <NumericUpDown Value="1"
                                Increment="1"
@@ -92,6 +94,7 @@
                     Payload data size:
                 </TextBlock>
                 <ComboBox SelectedIndex="0"
+                          SelectedItem="{Binding SelectedDataSize}"
                           MaxDropDownHeight="100"
                           HorizontalAlignment="Center"
                           Width="90"
@@ -106,7 +109,8 @@
             <Button Grid.Row="5"
                     HorizontalAlignment="Center"
                     Margin="0,0,0,10"
-                    IsEnabled="False">
+                    IsEnabled="{Binding IsConnectReady}"
+                    Command="{Binding ConnectButtonCommand}">
                 Connect
             </Button>
         </Grid>
