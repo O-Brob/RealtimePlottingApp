@@ -1,6 +1,9 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Timers;
 using Avalonia.Threading;
+using ReactiveUI;
 using RealtimePlottingApp.Models;
 using RealtimePlottingApp.Services;
 using ScottPlot.Avalonia;
@@ -21,6 +24,15 @@ namespace RealtimePlottingApp.ViewModels
 
         public GraphDiagramViewModel()
         {
+            // --- Initialize MessageBus for incoming messages --- //
+            MessageBus.Current.Listen<string>().Subscribe((msg) =>
+            {
+                if (msg.StartsWith("ConnectUart:"))
+                {
+                    ParseUartConfig(msg);
+                }
+            });
+            
             _dataGenerator = new DataGenerator();
             _dataGenerator.Start();
             _graphData = new GraphDataModel();
@@ -93,6 +105,44 @@ namespace RealtimePlottingApp.ViewModels
             _plotFullHistory = true;
             UpdatePlot(null, null); // Plot the full history one last time before stopping updates
         }
+        
+        // ---------- Private helper methods ---------- //
+        private void ParseUartConfig(string message)
+        {
+            try
+            {
+                // Updated regex pattern that allows "ConnectUart:" at the start
+                const string pattern = @"^ConnectUart:ComPort:(?<comPort>[^,]+),BaudRate:(?<baudRate>\d+),DataSize:(?<dataSize>\d+ bits)$";
+
+                // Match against the input string
+                Match match = Regex.Match(message, pattern);
+
+                if (match.Success)
+                {
+                    string comPort = match.Groups["comPort"].Value;
+                    int baudRate = int.Parse(match.Groups["baudRate"].Value);
+                    int dataSize = match.Groups["dataSize"].Value switch
+                    { // TODO: Change to proper enum representation
+                        "8 bits" => 8,
+                        "16 bits" => 16,
+                        "32 bits" => 32,
+                        _ => throw new FormatException("Invalid data size format")
+                    };
+
+                    // Output the extracted values
+                    Console.WriteLine($"ComPort: {comPort}, BaudRate: {baudRate}, DataSize: {dataSize}");
+                }
+                else
+                {
+                    Console.WriteLine("Message format is incorrect.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error parsing message: {ex.Message}");
+            }
+        }
+
         
     }
 }

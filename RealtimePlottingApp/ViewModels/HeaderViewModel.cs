@@ -50,7 +50,6 @@ namespace RealtimePlottingApp.ViewModels
         {
             // Sends message on bus for SidebarViewModel to receive.
             MessageBus.Current.SendMessage("ToggleSidebar");
-            Console.WriteLine($"ToggleSidebar executed");
         }
         
         // ==================== SHOWLINEGRAPH ==================== //

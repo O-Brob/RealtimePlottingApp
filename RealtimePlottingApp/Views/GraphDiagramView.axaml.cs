@@ -17,9 +17,9 @@ public partial class GraphDiagramView : UserControl
         // Therefore we let the view assign the plots to the ViewModel,
         // allowing greater performance at the cost of tighter coupling for these elements.
         // (see: https://scottplot.net/faq/mvvm/)
-        var graphDiagramViewModel = new GraphDiagramViewModel
+        if (DataContext is GraphDiagramViewModel viewModel)
         {
-            LinePlot = this.Find<AvaPlot>("Plot"),
+            viewModel.LinePlot = this.Find<AvaPlot>("Plot");
         };
         
     }
