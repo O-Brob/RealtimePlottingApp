@@ -8,8 +8,8 @@ namespace RealtimePlottingApp.Models;
 public class GraphDataModel
 {
     // Private instance variables which stores the data
-    private List<uint> _XData;
-    private List<uint> _YData;
+    private readonly List<uint> _XData;
+    private readonly List<uint> _YData;
     
     /// <summary>
     /// Returns access to a read-only representation of the X values.
@@ -26,8 +26,8 @@ public class GraphDataModel
     /// </summary>
     public GraphDataModel()
     {
-        _XData = new List<uint>();
-        _YData = new List<uint>();
+        _XData = [];
+        _YData = [];
     }
 
     /// <summary>

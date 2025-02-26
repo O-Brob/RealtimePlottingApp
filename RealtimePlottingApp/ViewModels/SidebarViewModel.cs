@@ -138,9 +138,8 @@ namespace RealtimePlottingApp.ViewModels
             // Linux
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                // Regex for Linux TTY ports (/dev/ttyS0, /dev/ttyS1, etc.)
-                var linuxRegex = new Regex(@"^/dev/ttyS\d+$", RegexOptions.IgnoreCase);
-                return linuxRegex.IsMatch(input);
+                // To allow flexibility for different ports (/dev/ttyS*, /dev/pts* virtual port... we just check /dev/)
+                return input.StartsWith("/dev/");
             }
             // No supported OS
             return false;

@@ -17,6 +17,8 @@ namespace RealtimePlottingApp.Services
         private readonly Random _random = new();
         private uint _counter = 0;
         private bool _dataReady = false;
+        private bool _isRunning = false;
+        private Thread? _dataThread;
 
         public event Action? DataAvailable; // Allows subscribing to when new data is available
 
@@ -27,25 +29,33 @@ namespace RealtimePlottingApp.Services
 
         public void Start()
         {
-            var dataThread = new Thread(GenerateData)
+            if (_isRunning) return;
+
+            _isRunning = true;
+            _dataThread = new Thread(GenerateData)
             {
                 IsBackground = true
             };
-            dataThread.Start();
+            _dataThread.Start();
+        }
+
+        public void Stop()
+        {
+            _isRunning = false;
+            _dataThread?.Join(); // Ensure the thread stops before continuing
         }
 
         private void GenerateData()
         {
-            while (true)
+            while (_isRunning)
             {
                 Thread.Sleep(1); // Simulate data generation delay (1 ms)
-                //for(int i = 0; i < 100000; i++){}
+                //for (int i = 0; i < 100000; i++);
                 
                 lock (_xData)
                 {
                     _counter++;
                     uint newX = _counter;
-                    // Generate a random integer between 0 and 10
                     uint newY = (uint)_random.Next(0, 11);
                     _xData.Add(newX);
                     _yData.Add(newY);
