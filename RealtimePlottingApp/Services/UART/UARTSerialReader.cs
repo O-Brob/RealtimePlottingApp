@@ -45,28 +45,35 @@ public class UARTSerialReader : ISerialReader
         };
 
         _packageSize = _dataPayloadBytes + 2; // Package size including timestamp (16bits)
-        
-        // Create the serial port with manually set buffer sizes (increasing read buffer) and open the port. 
-        _serialPort = new SerialPort(comPort, baudRate, Parity.None, 8, StopBits.One)
+        try
         {
-            ReadBufferSize = 4096*2,
-            WriteBufferSize = 2048,
-            // DtrEnable = true, // Enable if needed
-        };
-        
-        // Linux's termios system (or bad optimizations within the SerialPort library which prevents consistent interactions with it) seems to
-        // have issues where the configuration of the baudrate to a previously set value does not result in the configuration
-        // being applied immediately. By setting the configuration to a "dummy value" before the real configuration,
-        // the config seems to be applied immediately, preventing any occassional issues with starting reads for Linux.
-        if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            _serialPort.BaudRate = 1;
+            // Create the serial port with manually set buffer sizes (increasing read buffer) and open the port. 
+            _serialPort = new SerialPort(comPort, baudRate, Parity.None, 8, StopBits.One)
+            {
+                ReadBufferSize = 4096 * 2,
+                WriteBufferSize = 2048,
+                // DtrEnable = true, // Enable if needed
+            };
+
+            // Linux's termios system (or bad optimizations within the SerialPort library which prevents consistent interactions with it) seems to
+            // have issues where the configuration of the baudrate to a previously set value does not result in the configuration
+            // being applied immediately. By setting the configuration to a "dummy value" before the real configuration,
+            // the config seems to be applied immediately, preventing any occassional issues with starting reads for Linux.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                _serialPort.BaudRate = 1;
+                _serialPort.Open();
+                _serialPort.Close();
+                _serialPort.BaudRate = baudRate;
+            }
+
             _serialPort.Open();
-            _serialPort.Close();
-            _serialPort.BaudRate = baudRate;
         }
-        
-        _serialPort.Open();
+        catch (Exception e)
+        {
+            Console.WriteLine("Something went wrong while opening serial port " + comPort + ": " + e.Message);
+            throw;
+        }
         
         // Prepare buffers for async reads, start the read loop.
         _readBuffer = new byte[4096];
@@ -74,7 +81,15 @@ public class UARTSerialReader : ISerialReader
         StartReadingLoop();
         
         // Tell UART we're ready to receive (start message)
-        _serialPort.Write([(byte)'S'], 0, 1);
+        try
+        {
+            _serialPort.Write([(byte)'S'], 0, 1);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("Error while writing start byte to serial port " + comPort + ": " + e.Message);
+            throw;
+        }
     }
 
     public void StopSerial()
@@ -126,7 +141,6 @@ public class UARTSerialReader : ISerialReader
             {
                 if (_serialPort != null)
                     // BeginRead: "Begins an asynchronous read operation." --> this creates the asynchronicity
-                    // TODO : TRY-CATCH THE BASESTREAM, IN CASE KICKOFFREAD IS RUNNING ASYNC AS WE CLOSE THE PORT.
                     _serialPort.BaseStream.BeginRead(_readBuffer, 0, _readBuffer.Length, ar =>
                     {
                         try
@@ -224,6 +238,13 @@ public class UARTSerialReader : ISerialReader
     // data transmission for a new connection
     private void ForceStopCleanup(object? sender, EventArgs e)
     {
-        _serialPort?.Write([(byte)'R'],0,1);
+        try
+        {
+            _serialPort?.Write([(byte)'R'], 0, 1);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error sending stop byte on force shutdown: " + ex.Message);
+        }
     }
 }
