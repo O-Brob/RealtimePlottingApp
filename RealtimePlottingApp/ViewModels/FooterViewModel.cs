@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Diagnostics;
+using System.Windows.Input;
 using ReactiveUI;
 
 namespace RealtimePlottingApp.ViewModels
@@ -44,9 +46,30 @@ namespace RealtimePlottingApp.ViewModels
                     CommInterfaceStatus = $"UART Error: {msg[10..]}"; // Trim string identifier
                 }
             });
-
+            
+            // Initialize ICommands
+            OnGithubClick = ReactiveCommand.Create(OpenGithubRepo);
         }
         
+        // ---------- ICommand properties + methods for data binding ---------- //
+        public ICommand OnGithubClick { get; }
+
+        private static void OpenGithubRepo()
+        {
+            const string url = "https://github.com/O-Brob/RealtimePlottingApp";
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("An error occured while opening the Github repository: " + e);
+            }
+        }
         
     }
 }

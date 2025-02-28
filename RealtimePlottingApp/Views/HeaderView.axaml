@@ -32,10 +32,6 @@
                     
             </Menu>
         </DockPanel>
-        <Label Grid.Column="2" VerticalAlignment="Center" FontFamily="Segoe UI" 
-               HorizontalAlignment="Center" FontWeight="SemiBold">
-            Realtime Plotting App
-        </Label>
     </Grid>
     
 </UserControl>
