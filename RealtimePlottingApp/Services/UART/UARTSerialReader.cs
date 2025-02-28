@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
+using System.Runtime.InteropServices;
 using RealtimePlottingApp.Models;
 
 namespace RealtimePlottingApp.Services.UART;
@@ -18,6 +19,16 @@ public class UARTSerialReader : ISerialReader
     
     //----- ISerialReader API events -----//
     public event EventHandler<TimestampedDataReceivedEvent>? TimestampedDataReceived;
+    
+    //----- Constructor -----//
+    public UARTSerialReader()
+    {
+        // Ensures the stream is stopped if you force shut down the application.
+        // Makes it so that if you force shut down the application as it's going, you won't be
+        // connecting to an already ongoing uart stream later.
+        AppDomain.CurrentDomain.ProcessExit += ForceStopCleanup;
+        Console.CancelKeyPress += ForceStopCleanup;
+    }
     
     //----- ISerialReader API methods -----//
     public void StartSerial(string comPort, int baudRate, UARTDataPayloadSize payloadDataSize)
@@ -40,7 +51,20 @@ public class UARTSerialReader : ISerialReader
         {
             ReadBufferSize = 4096*2,
             WriteBufferSize = 2048,
+            // DtrEnable = true, // Enable if needed
         };
+        
+        // Linux's termios system (or bad optimizations within the SerialPort library which prevents consistent interactions with it) seems to
+        // have issues where the configuration of the baudrate to a previously set value does not result in the configuration
+        // being applied immediately. By setting the configuration to a "dummy value" before the real configuration,
+        // the config seems to be applied immediately, preventing any occassional issues with starting reads for Linux.
+        if(RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            _serialPort.BaudRate = 1;
+            _serialPort.Open();
+            _serialPort.Close();
+            _serialPort.BaudRate = baudRate;
+        }
         
         _serialPort.Open();
         
@@ -102,6 +126,7 @@ public class UARTSerialReader : ISerialReader
             {
                 if (_serialPort != null)
                     // BeginRead: "Begins an asynchronous read operation." --> this creates the asynchronicity
+                    // TODO : TRY-CATCH THE BASESTREAM, IN CASE KICKOFFREAD IS RUNNING ASYNC AS WE CLOSE THE PORT.
                     _serialPort.BaseStream.BeginRead(_readBuffer, 0, _readBuffer.Length, ar =>
                     {
                         try
@@ -193,5 +218,12 @@ public class UARTSerialReader : ISerialReader
             // Raise our custom event with the parsed packages.
             TimestampedDataReceived?.Invoke(this, new TimestampedDataReceivedEvent(packages.ToArray()));
         }
+    }
+
+    // Called upon application force shutdown to gracefully reset (and make ready) the
+    // data transmission for a new connection
+    private void ForceStopCleanup(object? sender, EventArgs e)
+    {
+        _serialPort?.Write([(byte)'R'],0,1);
     }
 }
