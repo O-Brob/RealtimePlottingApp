@@ -16,6 +16,7 @@ public class UARTSerialReader : ISerialReader
     private int _dataPayloadBytes = 0;
     private int _packageSize = 0;
     private readonly List<byte> _receiveBuffer = []; // To be used with locking, ensure threadsafe.
+    private static bool forceStopEnabled = false;
     
     //----- ISerialReader API events -----//
     public event EventHandler<TimestampedDataReceivedEvent>? TimestampedDataReceived;
@@ -26,8 +27,10 @@ public class UARTSerialReader : ISerialReader
         // Ensures the stream is stopped if you force shut down the application.
         // Makes it so that if you force shut down the application as it's going, you won't be
         // connecting to an already ongoing uart stream later.
+        if (forceStopEnabled) return;
         AppDomain.CurrentDomain.ProcessExit += ForceStopCleanup;
         Console.CancelKeyPress += ForceStopCleanup;
+        forceStopEnabled = true;
     }
     
     //----- ISerialReader API methods -----//

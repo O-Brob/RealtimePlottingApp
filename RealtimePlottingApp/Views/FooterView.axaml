@@ -15,8 +15,8 @@
     <!--  FOOTER DEFINITION  -->
     <Grid Background="#EEEEEE" Height="30" ColumnDefinitions="Auto,*,Auto">
         <Label FontFamily="Segoe UI" Grid.Column="0" 
-               VerticalAlignment="Center" FontWeight="ExtraLight" >
-            CAN: Disconnected
+               VerticalAlignment="Center" FontWeight="ExtraLight" 
+               Content="{Binding CommInterfaceStatus}">
         </Label>
             
         <Rectangle Fill="#EEEEEE" Grid.Column="2" Width="30" />

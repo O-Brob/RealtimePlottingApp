@@ -40,6 +40,7 @@ namespace RealtimePlottingApp.ViewModels
             // --- Initialize MessageBus for incoming messages --- //
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {
+                // Message telling us to connect to uart for obtaining graph data
                 if (msg.StartsWith("ConnectUart:"))
                 {
                     // Try to parse the config. If parsing goes well, connect.
@@ -48,16 +49,31 @@ namespace RealtimePlottingApp.ViewModels
                         try
                         {
                             ResetDataChannels(); // Ensure no channel exists for any medium
+                            _graphData?.Clear(); // Clear graph data to plot new connection's data
                             _serialReader = new UARTSerialReader();
                             _serialReader.TimestampedDataReceived += OnUartDataReceived;
                             _serialReader.StartSerial(comPort, baudRate, dataSize);
-                            // TODO: Give visual "UART: Connected" feedback
+                            MessageBus.Current.SendMessage("UARTConnected"); // Indicate success
                         }
                         catch (Exception e)
                         {
-                            // TODO: Display on application?
-                            Console.WriteLine(e.Message);
+                            MessageBus.Current.SendMessage($"UARTError: {e.Message}");
                         }
+                    }
+                }
+                
+                // Message telling us to disconnect UART
+                else if (msg.Equals("DisconnectUart"))
+                {
+                    try
+                    {
+                        _serialReader?.StopSerial();
+                        ResetDataChannels();
+                        MessageBus.Current.SendMessage("UARTDisconnected");
+                    }
+                    catch (Exception e)
+                    {
+                        MessageBus.Current.SendMessage($"UARTError: {e.Message}");
                     }
                 }
             });

@@ -40,7 +40,8 @@
                       MaxDropDownHeight="100" 
                       HorizontalAlignment="Center" 
                       Margin="0,5,0,0" 
-                      Width="85">
+                      Width="85"
+                      IsEnabled="{Binding CommSelectorEnabled}">
                 <ComboBoxItem>CAN</ComboBoxItem>
                 <ComboBoxItem>UART</ComboBoxItem>
             </ComboBox>
@@ -75,6 +76,7 @@
                 <NumericUpDown Watermark="e.g. 115200"
                                Increment="100"
                                Minimum="0"
+                               Maximum="999999999"
                                Margin="0,5,0,0"
                                Value="{Binding BaudRateInput}"></NumericUpDown>
                 
@@ -110,8 +112,8 @@
                     HorizontalAlignment="Center"
                     Margin="0,0,0,10"
                     IsEnabled="{Binding IsConnectReady}"
-                    Command="{Binding ConnectButtonCommand}">
-                Connect
+                    Command="{Binding ConnectButtonCommand}"
+                    Content="{Binding ConnectButtonText}">
             </Button>
         </Grid>
     </Border>

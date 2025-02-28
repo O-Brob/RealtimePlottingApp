@@ -13,6 +13,7 @@ namespace RealtimePlottingApp.ViewModels
         // Private variables:
         private bool _showSidebar = true;
         public bool ShowSidebar => _showSidebar;
+        private bool _isConnected = false;
         
         // ---------- Data binding variables: ----------- //
         // Data binding for the selected ComboBoxItem
@@ -27,6 +28,15 @@ namespace RealtimePlottingApp.ViewModels
                 this.RaisePropertyChanged(nameof(IsUartSelected));
                 this.RaisePropertyChanged(nameof(IsConnectReady));
             }
+        }
+        
+        // Data binding for whether ComboBox should be locked or not
+        private bool _commSelectorEnabled = true;
+
+        public bool CommSelectorEnabled
+        {
+            get => _commSelectorEnabled;
+            set => this.RaiseAndSetIfChanged(ref _commSelectorEnabled, value);
         }
 
         // Data binding for Conditional CAN/UART elements
@@ -86,6 +96,18 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
         
+        // ConnectButton text
+        private string _connectButtonText = "Connect";
+
+        public string ConnectButtonText
+        {
+            get => _connectButtonText;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _connectButtonText, value);
+            }
+        }
+        
         // ---------- ICommand properties + methods for data binding ---------- //
         public ICommand ConnectButtonCommand { get; }
 
@@ -93,8 +115,10 @@ namespace RealtimePlottingApp.ViewModels
         {
             if (IsUartSelected)
             {
-                MessageBus.Current.SendMessage
-                    ($"ConnectUart:ComPort:{_comPortInput},BaudRate:{_baudRateInput},DataSize:{_selectedDataSize.Content}");
+                MessageBus.Current.SendMessage(
+                    !_isConnected
+                        ? $"ConnectUart:ComPort:{_comPortInput},BaudRate:{_baudRateInput},DataSize:{_selectedDataSize.Content}"
+                        : "DisconnectUart");
             }
             else if (IsCanSelected)
             {
@@ -112,10 +136,28 @@ namespace RealtimePlottingApp.ViewModels
             // Initialize Messagebus for sidebar toggling via HeaderViewModel.
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {
+                // Toggle sidebar
                 if (msg.Equals("ToggleSidebar"))
                 {
                     _showSidebar = !_showSidebar;
                     this.RaisePropertyChanged(nameof(ShowSidebar));
+                }
+                
+                // Connection successful, enable "Disconnect" button.
+                else if (msg.Equals("UARTConnected"))
+                {
+                    _isConnected = true;
+                    ConnectButtonText = "Disconnect";
+                    CommSelectorEnabled = false; // Disable the Communication interface selector
+                    this.RaisePropertyChanged(nameof(CommSelectorEnabled));
+                }
+                
+                // Disconnect successful, enable "Connect" button.
+                else if (msg.Equals("UARTDisconnected"))
+                {
+                    _isConnected = false;
+                    ConnectButtonText = "Connect";
+                    CommSelectorEnabled = true;
                 }
             });
         }
