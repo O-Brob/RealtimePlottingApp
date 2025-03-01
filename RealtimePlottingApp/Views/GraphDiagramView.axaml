@@ -14,10 +14,15 @@
     </UserControl.DataContext>
     
     <!--  GRAPH/DIAGRAM DEFINITION (Using ScottPlot) -->
-    <Grid RowDefinitions="*,*">
-        <sp:AvaPlot x:Name="Plot" Grid.Row="0" IsVisible="True"/>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="{Binding Row1Height}" />
+            <RowDefinition Height="{Binding Row2Height}" />
+        </Grid.RowDefinitions>
 
-        <sp:AvaPlot x:Name="Plot2" Grid.Row="1" IsVisible="True"/>
+        <sp:AvaPlot x:Name="Plot" Grid.Row="0" IsVisible="{Binding Plot1Visible}" />
+        <sp:AvaPlot x:Name="Plot2" Grid.Row="1" IsVisible="{Binding Plot2Visible}" />
     </Grid>
+
     
 </UserControl>

@@ -26,8 +26,8 @@
                 <!-- "View" Dropdown -->
                 <MenuItem Header = "_View" Margin="0,0,0,0">
                     <MenuItem Header="Toggle Sidebar" Command="{Binding ToggleSidebarCommand}" />
-                    <MenuItem Header="Toggle Line Graph" Command="{Binding ShowLineGraphCommand}" />
-                    <MenuItem Header="Toggle Block Diagram" Command="{Binding ShowBlockDiagramCommand}" />
+                    <MenuItem Header="Toggle Line Graph" Command="{Binding ToggleLineGraphCommand}" />
+                    <MenuItem Header="Toggle Block Diagram" Command="{Binding ToggleBlockDiagramCommand}" />
                 </MenuItem>
                     
             </Menu>

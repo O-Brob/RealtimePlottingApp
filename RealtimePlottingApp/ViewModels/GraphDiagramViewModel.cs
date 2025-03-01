@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Timers;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using ReactiveUI;
 using RealtimePlottingApp.Models;
@@ -32,7 +33,7 @@ namespace RealtimePlottingApp.ViewModels
         private const bool _enableDataGeneratorTesting = true;
         private bool _plotFullHistory; // false default
         private const int _plotFullHistoryMsTimer = 15000;
-        private const double WindowWidth = 1000;
+        private const double WindowWidth = 75;
 
         // =============== Constructor =============== //
         public GraphDiagramViewModel()
@@ -75,6 +76,22 @@ namespace RealtimePlottingApp.ViewModels
                     {
                         MessageBus.Current.SendMessage($"UARTError: {e.Message}");
                     }
+                }
+                
+                // Toggle Graph 1 (LineGraph)
+                else if (msg.Equals("ToggleLineGraph"))
+                {
+                    _plot1Visible = !_plot1Visible;
+                    this.RaisePropertyChanged(nameof(Plot1Visible));
+                    this.RaisePropertyChanged(nameof(Row1Height));
+                }
+                
+                // Toggle Graph 2 (BlockDiagram)
+                else if (msg.Equals("ToggleBlockDiagram"))
+                {
+                    _plot2Visible = !_plot2Visible;
+                    this.RaisePropertyChanged(nameof(Plot2Visible));
+                    this.RaisePropertyChanged(nameof(Row2Height));
                 }
             });
             
@@ -202,5 +219,26 @@ namespace RealtimePlottingApp.ViewModels
             _serialReader?.StopSerial();
             _serialReader = null;
         }
+        
+        // =============== Handle graph visibility =============== //
+        private bool _plot1Visible = true;
+        private bool _plot2Visible = false;
+
+        public bool Plot1Visible
+        {
+            get => _plot1Visible;
+            set => this.RaiseAndSetIfChanged(ref _plot1Visible, value);
+        }
+
+        public bool Plot2Visible
+        {
+            get => _plot2Visible;
+            set => this.RaiseAndSetIfChanged(ref _plot2Visible, value);
+        }
+
+        // Computed properties for row heights:
+        public GridLength Row1Height => Plot1Visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        public GridLength Row2Height => Plot2Visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        
     }
 }
