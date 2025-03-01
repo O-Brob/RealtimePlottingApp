@@ -16,7 +16,6 @@ public class UARTSerialReader : ISerialReader
     private int _dataPayloadBytes = 0;
     private int _packageSize = 0;
     private readonly List<byte> _receiveBuffer = []; // To be used with locking, ensure threadsafe.
-    private static bool forceStopEnabled = false;
     
     //----- ISerialReader API events -----//
     public event EventHandler<TimestampedDataReceivedEvent>? TimestampedDataReceived;
@@ -24,13 +23,7 @@ public class UARTSerialReader : ISerialReader
     //----- Constructor -----//
     public UARTSerialReader()
     {
-        // Ensures the stream is stopped if you force shut down the application.
-        // Makes it so that if you force shut down the application as it's going, you won't be
-        // connecting to an already ongoing uart stream later.
-        if (forceStopEnabled) return;
-        AppDomain.CurrentDomain.ProcessExit += ForceStopCleanup;
-        Console.CancelKeyPress += ForceStopCleanup;
-        forceStopEnabled = true;
+
     }
     
     //----- ISerialReader API methods -----//
@@ -38,6 +31,14 @@ public class UARTSerialReader : ISerialReader
     {
         if (_isReading)
             return;
+        
+        // Ensures the stream is stopped if you force shut down the application.
+        // Makes it so that if you force shut down the application as it's going, you won't be
+        // connecting to an already ongoing uart stream later.
+        AppDomain.CurrentDomain.ProcessExit -= ForceStopCleanup; // Unregister if registered
+        Console.CancelKeyPress -= ForceStopCleanup;
+        AppDomain.CurrentDomain.ProcessExit += ForceStopCleanup; // Register or re-register
+        Console.CancelKeyPress += ForceStopCleanup;
 
         _dataPayloadBytes = payloadDataSize switch
         {
@@ -55,6 +56,7 @@ public class UARTSerialReader : ISerialReader
             {
                 ReadBufferSize = 4096 * 2,
                 WriteBufferSize = 2048,
+                WriteTimeout = 500,
                 // DtrEnable = true, // Enable if needed
             };
 
@@ -109,7 +111,7 @@ public class UARTSerialReader : ISerialReader
         }
         catch (Exception e)
         {
-            Console.WriteLine("Error sending stop byte" + e.Message);
+            Console.WriteLine("Error sending stop byte: " + e.Message);
         }
         
         _isReading = false;
@@ -137,15 +139,18 @@ public class UARTSerialReader : ISerialReader
         Action? kickoffRead = null;
         kickoffRead = () =>
         {
-            if (!_isReading)
+            if (!_isReading || _serialPort == null || !_serialPort.IsOpen)
                 return;
 
             try
             {
-                if (_serialPort != null)
                     // BeginRead: "Begins an asynchronous read operation." --> this creates the asynchronicity
                     _serialPort.BaseStream.BeginRead(_readBuffer, 0, _readBuffer.Length, ar =>
                     {
+                        // Ensure reading is still valid before the async reads as well
+                        if (!_isReading || _serialPort == null || !_serialPort.IsOpen)
+                            return;
+                        
                         try
                         {
                             int actualLength = _serialPort.BaseStream.EndRead(ar);
@@ -243,11 +248,25 @@ public class UARTSerialReader : ISerialReader
     {
         try
         {
-            _serialPort?.Write([(byte)'R'], 0, 1);
+            if (_serialPort == null || !_serialPort.IsOpen) return;
+            _serialPort.Write([(byte)'R'], 0, 1);
+            _serialPort.BaseStream.Flush(); // Ensure the stop byte is sent
+            System.Threading.Thread.Sleep(50); // Small delay to allow transmission
         }
         catch (Exception ex)
         {
             Console.WriteLine("Error sending stop byte on force shutdown: " + ex.Message);
+        }
+        finally
+        {
+            try
+            {
+                _serialPort?.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error gracefully closing port on force shutdown: " + ex.Message);
+            }
         }
     }
 }

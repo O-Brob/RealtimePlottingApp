@@ -12,7 +12,7 @@ namespace RealtimePlottingApp.ViewModels
         
         // --- Data binding variables --- // 
         // Data binding text to show connection status:
-        private string _commInterfaceStatus = "Comm. Interface: Disconnected";
+        private string _commInterfaceStatus = "Communication Interface: Not Configured";
 
         public string CommInterfaceStatus
         {
