@@ -142,7 +142,9 @@ namespace RealtimePlottingApp.ViewModels
                 if (LinePlot == null)
                     return;
                 LinePlot.Plot.Clear();
-                LinePlot.Plot.Add.ScatterLine(xDataDouble, yDataDouble);
+                // SignalXY Preconditions, which when met allows for greater perormance than ScatterLine Plotting:
+                // "New data points must have an X value that is greater to or than or equal than the previous one."
+                LinePlot.Plot.Add.SignalXY(xDataDouble, yDataDouble);
 
                 if (!_plotFullHistory && xDataDouble.Length > 0)
                 {
