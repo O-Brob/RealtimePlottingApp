@@ -211,19 +211,35 @@ public class UARTSerialReader : ISerialReader
 
                 // Remove the processed bytes from the buffer.
                 _receiveBuffer.RemoveRange(0, _packageSize);
+                
+                // Extract payload bytes (first _dataPayloadBytes bytes)
+                byte[] payloadBytes = new byte[_dataPayloadBytes];
+                Array.Copy(packageBytes, 0, payloadBytes, 0, _dataPayloadBytes);
+                // Data is transmitted in big-endian order.
+                // If the system is little-endian, reverse the payload bytes.
+                if (BitConverter.IsLittleEndian && _dataPayloadBytes > 1)
+                {
+                    Array.Reverse(payloadBytes);
+                }
 
-                // Parse the data value.
-
+                // Use switch-case to convert payload bytes to an unsigned integer.
                 uint dataValue = _dataPayloadBytes switch
                 {
-                    1 => packageBytes[0],
-                    2 => BitConverter.ToUInt16(packageBytes, 0),
-                    4 => BitConverter.ToUInt32(packageBytes, 0),
+                    1 => payloadBytes[0],
+                    2 => BitConverter.ToUInt16(payloadBytes, 0),
+                    4 => BitConverter.ToUInt32(payloadBytes, 0),
                     _ => 0
                 };
 
                 // Parse 16-bit timestamp.
-                ushort timeStamp = BitConverter.ToUInt16(packageBytes, _dataPayloadBytes);
+                // Timestamp is transmitted as 2 bytes in big-endian order.
+                byte[] timestampBytes = new byte[2];
+                Array.Copy(packageBytes, _dataPayloadBytes, timestampBytes, 0, 2);
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(timestampBytes);
+                }
+                ushort timeStamp = BitConverter.ToUInt16(timestampBytes, 0);
 
                 UARTTimestampedData package = new UARTTimestampedData
                 {
