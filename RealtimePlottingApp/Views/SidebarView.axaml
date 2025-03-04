@@ -42,6 +42,10 @@
                       Margin="0,5,0,0" 
                       Width="85"
                       IsEnabled="{Binding CommSelectorEnabled}">
+                <ToolTip.Tip>
+                    The communication interface from which data will be read.
+                </ToolTip.Tip>
+                
                 <ComboBoxItem>CAN</ComboBoxItem>
                 <ComboBoxItem>UART</ComboBoxItem>
             </ComboBox>
@@ -66,7 +70,13 @@
                 </TextBlock>
                 <TextBox Watermark="e.g. COM1, /dev/ttyS0"
                          Margin="0,5,0,0"
-                         Text="{Binding ComPortInput}"></TextBox>
+                         Text="{Binding ComPortInput}">
+                    <ToolTip.Tip>
+                        The name of the serial port interface used to receive UART data.
+                        If connections are refused, ensure the current user account on PC has
+                        the privileges required to access the port.
+                    </ToolTip.Tip>
+                </TextBox>
                 
                 <!-- BaudRate Port: -->
                 <TextBlock HorizontalAlignment="Center"
@@ -78,7 +88,12 @@
                                Minimum="0"
                                Maximum="999999999"
                                Margin="0,5,0,0"
-                               Value="{Binding BaudRateInput}"></NumericUpDown>
+                               Value="{Binding BaudRateInput}">
+                    <ToolTip.Tip>
+                        A Baud Rate which matches that of the data sender.
+                        Defines the rate at which the data is transferred.
+                    </ToolTip.Tip>
+                </NumericUpDown>
                 
                 <!-- Number of unique variables -->
                 <TextBlock HorizontalAlignment="Center"
@@ -88,7 +103,13 @@
                 <NumericUpDown Value="{Binding UniqueVariableCount}"
                                Increment="1"
                                Minimum="1"
-                               Margin="0,5,0,0"></NumericUpDown>
+                               Margin="0,5,0,0">
+                    <ToolTip.Tip>
+                        The number of unique data variables that are to be received alongside
+                        a timestamp, each being plotted with its own line.
+                        
+                    </ToolTip.Tip>
+                </NumericUpDown>
                 
                 <!-- Payload Data Size: -->
                 <TextBlock HorizontalAlignment="Center"
@@ -101,6 +122,11 @@
                           HorizontalAlignment="Center"
                           Width="90"
                           Margin="0,5,0,0">
+                    <ToolTip.Tip>
+                        The bit-size of the data variables to be received from the UART.
+                        Each unique variable is expected to be of this data size.
+                    </ToolTip.Tip>
+                    
                     <ComboBoxItem>8 bits</ComboBoxItem>
                     <ComboBoxItem>16 bits</ComboBoxItem>
                     <ComboBoxItem>32 bits</ComboBoxItem>
@@ -114,7 +140,21 @@
                     IsEnabled="{Binding IsConnectReady}"
                     Command="{Binding ConnectButtonCommand}"
                     Content="{Binding ConnectButtonText}">
+                <ToolTip.Tip>
+                    <StackPanel>
+                        <TextBlock Margin="0,0,0,15">
+                            Connect: Attempts to connect to the communication 
+                            interface with the given config.
+                        </TextBlock>
+                        <TextBlock>
+                            Disconnect: Stops the connection, plotting, 
+                            and enters "History Mode" for the plot.
+                        </TextBlock>
+                    </StackPanel>
+                </ToolTip.Tip>
+                
             </Button>
+            
         </Grid>
     </Border>
     

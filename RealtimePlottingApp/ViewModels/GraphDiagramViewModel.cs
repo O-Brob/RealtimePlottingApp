@@ -25,7 +25,6 @@ namespace RealtimePlottingApp.ViewModels
         
         // --- UI Timers --- //
         private readonly Timer _timer;
-        private readonly Timer _historyEnableTimer;
         
         // --- Graph elements from View --- //
         public AvaPlot? LinePlot { get; set; }  // Line-plot assigned from View
@@ -34,12 +33,18 @@ namespace RealtimePlottingApp.ViewModels
         // --- Plotting modes & restraints --- //
         private const bool _enableDataGeneratorTesting = true;
         private bool _plotFullHistory; // false default
-        private const int _plotFullHistoryMsTimer = 15000;
         private const double WindowWidth = 75;
 
         // =============== Constructor =============== //
         public GraphDiagramViewModel()
         {
+            // Create a GraphDataModel to hold incoming data which can be plotted.
+            _graphData = new GraphDataModel();
+
+            // UI update timer
+            _timer = new Timer(100); // 100ms between UI updates
+            _timer.Elapsed += UpdatePlot;
+            
             // --- Initialize MessageBus for incoming messages --- //
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {
@@ -53,10 +58,12 @@ namespace RealtimePlottingApp.ViewModels
                         try
                         {
                             ResetDataChannels(); // Ensure no channel exists for any medium
-                            _graphData?.Clear(); // Clear graph data to plot new connection's data
+                            _graphData.Clear(); // Clear graph data to plot new connection's data
                             _serialReader = new UARTSerialReader();
                             _serialReader.TimestampedDataReceived += OnUartDataReceived;
                             _serialReader.StartSerial(comPort, baudRate, dataSize);
+                            _plotFullHistory = false; // Allow progressive plotting.
+                            _timer.Start(); // Start UI updates
                             MessageBus.Current.SendMessage("UARTConnected"); // Indicate success
                         }
                         catch (Exception e)
@@ -74,6 +81,7 @@ namespace RealtimePlottingApp.ViewModels
                         _serialReader?.StopSerial();
                         ResetDataChannels();
                         MessageBus.Current.SendMessage("UARTDisconnected");
+                        EnableFullHistory();
                     }
                     catch (Exception e)
                     {
@@ -98,19 +106,6 @@ namespace RealtimePlottingApp.ViewModels
                 }
             });
             
-            _graphData = new GraphDataModel();
-
-            // UI update timer
-            _timer = new Timer(100); // 100ms between UI updates
-            _timer.Elapsed += UpdatePlot;
-            _timer.Start();
-
-            // Timer to enable full history mode after given amount of seconds (for preliminary testing)
-            _historyEnableTimer = new Timer(_plotFullHistoryMsTimer);
-            _historyEnableTimer.Elapsed += EnableFullHistory;
-            _historyEnableTimer.AutoReset = false; // Run only once
-            _historyEnableTimer.Start();
-            
             // Enable data generator for testing:
             if (_enableDataGeneratorTesting) // Enable data generator
             {
@@ -122,6 +117,7 @@ namespace RealtimePlottingApp.ViewModels
                         _graphData.AddPoint(_dataGenerator.XData.Last(), _dataGenerator.YData.Last());
                     }
                 };
+                _timer.Start();
                 _dataGenerator.Start();
             }
         }
@@ -164,8 +160,8 @@ namespace RealtimePlottingApp.ViewModels
                 for (int v = 0; v < _uniqueVars; v++)
                 {
                     // Use LINQ's index-aware overload of the Where method to filter data by % operations on index.
-                    double[] xVar = xDataDouble.Where((val, idx) => idx % _uniqueVars == v).ToArray();
-                    double[] yVar = yDataDouble.Where((val, idx) => idx % _uniqueVars == v).ToArray();
+                    double[] xVar = xDataDouble.Where((_, idx) => idx % _uniqueVars == v).ToArray();
+                    double[] yVar = yDataDouble.Where((_, idx) => idx % _uniqueVars == v).ToArray();
 
                     if (xVar.Length <= 0) continue;
                     
@@ -198,7 +194,7 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
 
-        private void EnableFullHistory(object? sender, ElapsedEventArgs e)
+        private void EnableFullHistory()
         {
             _plotFullHistory = true;
             UpdatePlot(null, null!); // Plot the full history one last time before stopping updates
@@ -258,7 +254,7 @@ namespace RealtimePlottingApp.ViewModels
         
         // =============== Handle graph visibility =============== //
         private bool _plot1Visible = true;
-        private bool _plot2Visible = false;
+        private bool _plot2Visible; // false default
 
         public bool Plot1Visible
         {
