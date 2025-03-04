@@ -62,6 +62,20 @@ namespace RealtimePlottingApp.ViewModels
                 this.RaisePropertyChanged(nameof(IsConnectReady));
             }
         }
+        
+        // Unique Variable Count input
+        private int? _uniqueVariableCount = 1;
+
+        public int? UniqueVariableCount
+        {
+            get => _uniqueVariableCount;
+            set
+            {
+                // Never allow null values to actually be set, but allow the input field to be empty (for manual input)
+                if(value != null)
+                    this.RaiseAndSetIfChanged(ref _uniqueVariableCount, value);
+            }
+        }
 
         // Baud-rate Input
         private int? _baudRateInput;
@@ -117,7 +131,7 @@ namespace RealtimePlottingApp.ViewModels
             {
                 MessageBus.Current.SendMessage(
                     !_isConnected
-                        ? $"ConnectUart:ComPort:{_comPortInput},BaudRate:{_baudRateInput},DataSize:{_selectedDataSize.Content}"
+                        ? $"ConnectUart:ComPort:{_comPortInput},BaudRate:{_baudRateInput},DataSize:{_selectedDataSize.Content},UniqueVars:{_uniqueVariableCount}"
                         : "DisconnectUart");
             }
             else if (IsCanSelected)

@@ -9,6 +9,7 @@ using RealtimePlottingApp.Models;
 using RealtimePlottingApp.Services;
 using RealtimePlottingApp.Services.UART;
 using ScottPlot.Avalonia;
+using ScottPlot.Plottables;
 
 namespace RealtimePlottingApp.ViewModels
 {
@@ -28,6 +29,7 @@ namespace RealtimePlottingApp.ViewModels
         
         // --- Graph elements from View --- //
         public AvaPlot? LinePlot { get; set; }  // Line-plot assigned from View
+        private int _uniqueVars = 1; // 1 Variable as default. Could change alongside UI config.
 
         // --- Plotting modes & restraints --- //
         private const bool _enableDataGeneratorTesting = true;
@@ -45,7 +47,8 @@ namespace RealtimePlottingApp.ViewModels
                 if (msg.StartsWith("ConnectUart:"))
                 {
                     // Try to parse the config. If parsing goes well, connect.
-                    if (ParseUartConfig(msg, out string comPort, out int baudRate, out UARTDataPayloadSize dataSize))
+                    if (ParseUartConfig(msg, out string comPort, out int baudRate, 
+                            out UARTDataPayloadSize dataSize, out _uniqueVars))
                     {
                         try
                         {
@@ -128,26 +131,53 @@ namespace RealtimePlottingApp.ViewModels
         private void UpdatePlot(object? sender, ElapsedEventArgs e)
         {
             double[] xDataDouble, yDataDouble;
-            // Lock the graph data while reading it for plotting
+            
+            // Lock the graph data while reading it to ensure consistency
             lock (_graphData)
             {
-                var totalPoints = _graphData.XData.Count;
-                int startIndex = (!_plotFullHistory && totalPoints > 1000) ? totalPoints - 1000 : 0;
-                xDataDouble = _graphData.XData.Skip(startIndex).Select(val => (double)val).ToArray();
-                yDataDouble = _graphData.YData.Skip(startIndex).Select(val => (double)val).ToArray();
+                int totalPoints = _graphData.XData.Count;
+                // Plot last ~1000 points. Performance seems great,
+                // and trying to fit more on screen during plotting is unreasonable.
+                int candidate = (!_plotFullHistory && totalPoints > 1000) ? totalPoints - 1000 : 0;
+                
+                // Ensures sub-array will start at a position that aligns with the interleaved data structure
+                int startIndex = candidate - (candidate % _uniqueVars);
+                xDataDouble = _graphData.XData
+                    .Skip(startIndex)
+                    .Select(val => (double)val)
+                    .ToArray();
+                yDataDouble = _graphData.YData
+                    .Skip(startIndex)
+                    .Select(val => (double)val)
+                    .ToArray();
             }
 
+            // Update UI asynchronously on Avalonia's UI Thread
             Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (LinePlot == null)
                     return;
+                
                 LinePlot.Plot.Clear();
-                // SignalXY Preconditions, which when met allows for greater perormance than ScatterLine Plotting:
-                // "New data points must have an X value that is greater to or than or equal than the previous one."
-                LinePlot.Plot.Add.SignalXY(xDataDouble, yDataDouble);
+        
+                // Loop over each variable and extract its data.
+                for (int v = 0; v < _uniqueVars; v++)
+                {
+                    // Use LINQ's index-aware overload of the Where method to filter data by % operations on index.
+                    double[] xVar = xDataDouble.Where((val, idx) => idx % _uniqueVars == v).ToArray();
+                    double[] yVar = yDataDouble.Where((val, idx) => idx % _uniqueVars == v).ToArray();
 
+                    if (xVar.Length <= 0) continue;
+                    
+                    // SignalXY Preconditions, which when met allows for greater performance than ScatterLine Plotting:
+                    // "New data points must have an X value that is greater to or equal to the previous one."
+                    SignalXY signal = LinePlot.Plot.Add.SignalXY(xVar, yVar);
+                    signal.LegendText = $"Var {v+1}";
+                }
+        
                 if (!_plotFullHistory && xDataDouble.Length > 0)
                 {
+                    // Make X-Axis limit & "follow" the plotting while not in "history mode"
                     double lastX = xDataDouble.Last();
                     LinePlot.Plot.Axes.SetLimitsX(lastX - WindowWidth, lastX);
                 }
@@ -155,7 +185,9 @@ namespace RealtimePlottingApp.ViewModels
                 {
                     LinePlot.Plot.Axes.AutoScale();
                 }
-
+        
+                // Add legend so each variable is identifiable.
+                LinePlot.Plot.ShowLegend();
                 LinePlot.Refresh();
             });
 
@@ -186,15 +218,16 @@ namespace RealtimePlottingApp.ViewModels
         }
         
         // =============== Private Helper Methods =============== //
-        private static bool ParseUartConfig(string message, out string comPort, out int baudRate, out UARTDataPayloadSize dataSize)
+        private static bool ParseUartConfig(string message, out string comPort, out int baudRate, out UARTDataPayloadSize dataSize, out int uniqueVars)
         {
-            const string pattern = @"^ConnectUart:ComPort:(?<comPort>[^,]+),BaudRate:(?<baudRate>\d+),DataSize:(?<dataSize>\d+ bits)$";
+            const string pattern = @"^ConnectUart:ComPort:(?<comPort>[^,]+),BaudRate:(?<baudRate>\d+),DataSize:(?<dataSize>\d+ bits),UniqueVars:(?<uniqueVars>\d+)$";
             Match match = Regex.Match(message, pattern);
 
             if (match.Success)
             {
                 comPort = match.Groups["comPort"].Value;
                 baudRate = int.Parse(match.Groups["baudRate"].Value);
+                uniqueVars = int.Parse(match.Groups["uniqueVars"].Value);
                 dataSize = match.Groups["dataSize"].Value switch
                 {
                     "8 bits" => UARTDataPayloadSize.UART_PAYLOAD_8,
@@ -208,6 +241,7 @@ namespace RealtimePlottingApp.ViewModels
             // No success, return defaults.
             comPort = string.Empty;
             baudRate = 0;
+            uniqueVars = 0;
             dataSize = default;
             return false;
         }
