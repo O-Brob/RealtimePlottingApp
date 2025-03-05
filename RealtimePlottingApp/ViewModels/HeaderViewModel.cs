@@ -14,16 +14,16 @@ namespace RealtimePlottingApp.ViewModels
             SaveConfigCommand = ReactiveCommand.Create(SaveConfig);
             LoadConfigCommand = ReactiveCommand.Create(LoadConfig);
             ToggleSidebarCommand = ReactiveCommand.Create(ToggleSidebar);
-            ShowLineGraphCommand = ReactiveCommand.Create(ShowLineGraph);
-            ShowBlockDiagramCommand = ReactiveCommand.Create(ShowBlockDiagram);
+            ToggleLineGraphCommand = ReactiveCommand.Create(ToggleLineGraph);
+            ToggleBlockDiagramCommand = ReactiveCommand.Create(ToggleBlockDiagram);
         }
         
         // ICommand properties for data binding.
         public ICommand SaveConfigCommand { get; }
         public ICommand LoadConfigCommand { get; }
         public ICommand ToggleSidebarCommand { get; }
-        public ICommand ShowLineGraphCommand { get; }
-        public ICommand ShowBlockDiagramCommand { get; }
+        public ICommand ToggleLineGraphCommand { get; }
+        public ICommand ToggleBlockDiagramCommand { get; }
 
         // ==================== SAVECONFIG ==================== //
         
@@ -52,22 +52,20 @@ namespace RealtimePlottingApp.ViewModels
             MessageBus.Current.SendMessage("ToggleSidebar");
         }
         
-        // ==================== SHOWLINEGRAPH ==================== //
+        // ==================== TOGGLELINEGRAPH ==================== //
         
         // Command handler for showing the line graph.
-        private void ShowLineGraph()
+        private void ToggleLineGraph()
         {
-            // TODO: Implement this command's logic
-            Console.WriteLine("ShowLineGraph executed");
+            MessageBus.Current.SendMessage("ToggleLineGraph");
         }
         
-        // ==================== SHOWBLOCKDIAGRAM ==================== //
+        // ==================== TOGGLEBLOCKDIAGRAM ==================== //
         
         // Command handler for showing the block diagram.
-        private void ShowBlockDiagram()
+        private void ToggleBlockDiagram()
         {
-            // TODO: Implement this command's logic
-            Console.WriteLine("ShowBlockDiagram executed");
+            MessageBus.Current.SendMessage("ToggleBlockDiagram");
         }
         
     }

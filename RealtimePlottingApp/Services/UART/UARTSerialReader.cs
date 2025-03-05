@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
+using System.Runtime.InteropServices;
 using RealtimePlottingApp.Models;
 
 namespace RealtimePlottingApp.Services.UART;
@@ -19,11 +20,25 @@ public class UARTSerialReader : ISerialReader
     //----- ISerialReader API events -----//
     public event EventHandler<TimestampedDataReceivedEvent>? TimestampedDataReceived;
     
+    //----- Constructor -----//
+    public UARTSerialReader()
+    {
+
+    }
+    
     //----- ISerialReader API methods -----//
     public void StartSerial(string comPort, int baudRate, UARTDataPayloadSize payloadDataSize)
     {
         if (_isReading)
             return;
+        
+        // Ensures the stream is stopped if you force shut down the application.
+        // Makes it so that if you force shut down the application as it's going, you won't be
+        // connecting to an already ongoing uart stream later.
+        AppDomain.CurrentDomain.ProcessExit -= ForceStopCleanup; // Unregister if registered
+        Console.CancelKeyPress -= ForceStopCleanup;
+        AppDomain.CurrentDomain.ProcessExit += ForceStopCleanup; // Register or re-register
+        Console.CancelKeyPress += ForceStopCleanup;
 
         _dataPayloadBytes = payloadDataSize switch
         {
@@ -34,15 +49,36 @@ public class UARTSerialReader : ISerialReader
         };
 
         _packageSize = _dataPayloadBytes + 2; // Package size including timestamp (16bits)
-        
-        // Create the serial port with manually set buffer sizes (increasing read buffer) and open the port. 
-        _serialPort = new SerialPort(comPort, baudRate, Parity.None, 8, StopBits.One)
+        try
         {
-            ReadBufferSize = 4096*2,
-            WriteBufferSize = 2048,
-        };
-        
-        _serialPort.Open();
+            // Create the serial port with manually set buffer sizes (increasing read buffer) and open the port. 
+            _serialPort = new SerialPort(comPort, baudRate, Parity.None, 8, StopBits.One)
+            {
+                ReadBufferSize = 4096 * 2,
+                WriteBufferSize = 2048,
+                WriteTimeout = 500,
+                // DtrEnable = true, // Enable if needed
+            };
+
+            // Linux's termios system (or bad optimizations within the SerialPort library which prevents consistent interactions with it) seems to
+            // have issues where the configuration of the baudrate to a previously set value does not result in the configuration
+            // being applied immediately. By setting the configuration to a "dummy value" before the real configuration,
+            // the config seems to be applied immediately, preventing any occassional issues with starting reads for Linux.
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                _serialPort.BaudRate = 1;
+                _serialPort.Open();
+                _serialPort.Close();
+                _serialPort.BaudRate = baudRate;
+            }
+
+            _serialPort.Open();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("Something went wrong while opening serial port " + comPort + ": " + e.Message);
+            throw;
+        }
         
         // Prepare buffers for async reads, start the read loop.
         _readBuffer = new byte[4096];
@@ -50,7 +86,15 @@ public class UARTSerialReader : ISerialReader
         StartReadingLoop();
         
         // Tell UART we're ready to receive (start message)
-        _serialPort.Write([(byte)'S'], 0, 1);
+        try
+        {
+            _serialPort.Write([(byte)'S'], 0, 1);
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine("Error while writing start byte to serial port " + comPort + ": " + e.Message);
+            throw;
+        }
     }
 
     public void StopSerial()
@@ -67,7 +111,7 @@ public class UARTSerialReader : ISerialReader
         }
         catch (Exception e)
         {
-            Console.WriteLine("Error sending stop byte" + e.Message);
+            Console.WriteLine("Error sending stop byte: " + e.Message);
         }
         
         _isReading = false;
@@ -95,15 +139,18 @@ public class UARTSerialReader : ISerialReader
         Action? kickoffRead = null;
         kickoffRead = () =>
         {
-            if (!_isReading)
+            if (!_isReading || _serialPort == null || !_serialPort.IsOpen)
                 return;
 
             try
             {
-                if (_serialPort != null)
                     // BeginRead: "Begins an asynchronous read operation." --> this creates the asynchronicity
                     _serialPort.BaseStream.BeginRead(_readBuffer, 0, _readBuffer.Length, ar =>
                     {
+                        // Ensure reading is still valid before the async reads as well
+                        if (!_isReading || _serialPort == null || !_serialPort.IsOpen)
+                            return;
+                        
                         try
                         {
                             int actualLength = _serialPort.BaseStream.EndRead(ar);
@@ -164,19 +211,35 @@ public class UARTSerialReader : ISerialReader
 
                 // Remove the processed bytes from the buffer.
                 _receiveBuffer.RemoveRange(0, _packageSize);
+                
+                // Extract payload bytes (first _dataPayloadBytes bytes)
+                byte[] payloadBytes = new byte[_dataPayloadBytes];
+                Array.Copy(packageBytes, 0, payloadBytes, 0, _dataPayloadBytes);
+                // Data is transmitted in big-endian order.
+                // If the system is little-endian, reverse the payload bytes.
+                if (BitConverter.IsLittleEndian && _dataPayloadBytes > 1)
+                {
+                    Array.Reverse(payloadBytes);
+                }
 
-                // Parse the data value.
-
+                // Use switch-case to convert payload bytes to an unsigned integer.
                 uint dataValue = _dataPayloadBytes switch
                 {
-                    1 => packageBytes[0],
-                    2 => BitConverter.ToUInt16(packageBytes, 0),
-                    4 => BitConverter.ToUInt32(packageBytes, 0),
+                    1 => payloadBytes[0],
+                    2 => BitConverter.ToUInt16(payloadBytes, 0),
+                    4 => BitConverter.ToUInt32(payloadBytes, 0),
                     _ => 0
                 };
 
                 // Parse 16-bit timestamp.
-                ushort timeStamp = BitConverter.ToUInt16(packageBytes, _dataPayloadBytes);
+                // Timestamp is transmitted as 2 bytes in big-endian order.
+                byte[] timestampBytes = new byte[2];
+                Array.Copy(packageBytes, _dataPayloadBytes, timestampBytes, 0, 2);
+                if (BitConverter.IsLittleEndian)
+                {
+                    Array.Reverse(timestampBytes);
+                }
+                ushort timeStamp = BitConverter.ToUInt16(timestampBytes, 0);
 
                 UARTTimestampedData package = new UARTTimestampedData
                 {
@@ -192,6 +255,34 @@ public class UARTSerialReader : ISerialReader
         {
             // Raise our custom event with the parsed packages.
             TimestampedDataReceived?.Invoke(this, new TimestampedDataReceivedEvent(packages.ToArray()));
+        }
+    }
+
+    // Called upon application force shutdown to gracefully reset (and make ready) the
+    // data transmission for a new connection
+    private void ForceStopCleanup(object? sender, EventArgs e)
+    {
+        try
+        {
+            if (_serialPort == null || !_serialPort.IsOpen) return;
+            _serialPort.Write([(byte)'R'], 0, 1);
+            _serialPort.BaseStream.Flush(); // Ensure the stop byte is sent
+            System.Threading.Thread.Sleep(50); // Small delay to allow transmission
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine("Error sending stop byte on force shutdown: " + ex.Message);
+        }
+        finally
+        {
+            try
+            {
+                _serialPort?.Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Error gracefully closing port on force shutdown: " + ex.Message);
+            }
         }
     }
 }

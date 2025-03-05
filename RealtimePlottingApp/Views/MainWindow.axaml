@@ -5,6 +5,8 @@
         xmlns:view="clr-namespace:RealtimePlottingApp.Views"
         xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
         mc:Ignorable="d" d:DesignWidth="680" d:DesignHeight="450"
+        Width="950"
+        Height="600"
         ExtendClientAreaToDecorationsHint="True"
         x:Class="RealtimePlottingApp.Views.MainWindow"
         x:DataType="viewmodel:MainWindowViewModel"
