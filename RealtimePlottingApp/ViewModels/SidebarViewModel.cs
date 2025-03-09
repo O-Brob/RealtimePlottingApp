@@ -1,9 +1,11 @@
 ﻿using ReactiveUI;
 using System;
+using System.Collections.ObjectModel;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
 using Avalonia.Controls;
+using RealtimePlottingApp.Models;
 
 namespace RealtimePlottingApp.ViewModels
 {
@@ -46,6 +48,34 @@ namespace RealtimePlottingApp.ViewModels
         // Data binding for Connect button's "isEnabled" field. Ensures required fields are filled in before connecting.
         public bool IsConnectReady => (IsUartSelected && (IsValidComPortFormat(_comPortInput)) && (_baudRateInput > 0) );
         
+        // Update Frequency Slider.
+        private int? _updateFrequencySlider = 100; // Default value
+
+        public int? UpdateFrequencySlider
+        {
+            get => _updateFrequencySlider;
+            set
+            {
+                if (value == null) return;
+                this.RaiseAndSetIfChanged(ref _updateFrequencySlider, value);
+                MessageBus.Current.SendMessage($"updateFrequency:{_updateFrequencySlider}");
+            }
+        }
+
+        // Variable Amount Slider.
+        private int? _variableAmountSlider = 75;
+
+        public int? VariableAmountSlider
+        {
+            get => _variableAmountSlider;
+            set
+            {
+                if (value == null) return;
+                this.RaiseAndSetIfChanged(ref _variableAmountSlider, value);
+                MessageBus.Current.SendMessage($"variableAmount:{_variableAmountSlider}");
+            }
+        }
+
         // ----- CAN Data Bindings ----- //
         // TODO : Implement CAN data bindings
         
@@ -122,6 +152,14 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
         
+        // Variable List bindings (dynamic)
+        private ObservableCollection<IVariableModel> _variables = [];
+        public ObservableCollection<IVariableModel> Variables
+        {
+            get => _variables;
+            set => this.RaiseAndSetIfChanged(ref _variables, value); 
+        }
+
         // ---------- ICommand properties + methods for data binding ---------- //
         public ICommand ConnectButtonCommand { get; }
 
@@ -164,6 +202,17 @@ namespace RealtimePlottingApp.ViewModels
                     ConnectButtonText = "Disconnect";
                     CommSelectorEnabled = false; // Disable the Communication interface selector
                     this.RaisePropertyChanged(nameof(CommSelectorEnabled));
+                    
+                    // Update Plot Config window's variable list to match the count on successful connect:
+                    ObservableCollection<IVariableModel> newList = [];
+                    for (int i = 0; i < _uniqueVariableCount; i++)
+                    {
+                        newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
+                    }
+                    Variables = newList;
+                    
+                    // Notify other views that want an up-to-date access to the variables from when connection is made.
+                    MessageBus.Current.SendMessage(Variables, "VariableList");
                 }
                 
                 // Disconnect successful, enable "Connect" button.

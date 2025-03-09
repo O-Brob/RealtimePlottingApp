@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Timers;
@@ -29,11 +30,12 @@ namespace RealtimePlottingApp.ViewModels
         // --- Graph elements from View --- //
         public AvaPlot? LinePlot { get; set; }  // Line-plot assigned from View
         private int _uniqueVars = 1; // 1 Variable as default. Could change alongside UI config.
+        private ObservableCollection<IVariableModel> _plotConfigVariables;
 
         // --- Plotting modes & restraints --- //
         private const bool _enableDataGeneratorTesting = true;
         private bool _plotFullHistory; // false default
-        private const double WindowWidth = 75;
+        private double WindowWidth = 75;
 
         // =============== Constructor =============== //
         public GraphDiagramViewModel()
@@ -42,10 +44,10 @@ namespace RealtimePlottingApp.ViewModels
             _graphData = new GraphDataModel();
 
             // UI update timer
-            _timer = new Timer(100); // 100ms between UI updates
+            _timer = new Timer(100); // ms between UI updates
             _timer.Elapsed += UpdatePlot;
             
-            // --- Initialize MessageBus for incoming messages --- //
+            // --- Initialize MessageBuses for incoming messages --- //
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {
                 // Message telling us to connect to uart for obtaining graph data
@@ -104,11 +106,63 @@ namespace RealtimePlottingApp.ViewModels
                     this.RaisePropertyChanged(nameof(Plot2Visible));
                     this.RaisePropertyChanged(nameof(Row2Height));
                 }
+                
+                else if (msg.StartsWith("updateFrequency:"))
+                {
+                    // Change the UI timer's update interval on request.
+                    // Substring the value following `:`
+                    _timer.Interval = Convert.ToDouble(msg[16..]);
+                }
+                
+                else if (msg.StartsWith("variableAmount:"))
+                {
+                    // Change the WindowWidth on request.
+                    // Substring the value following `:`
+                    WindowWidth = Convert.ToInt32(msg[15..]);
+                }
             });
+
+            // Receive VariableList when number of variables or their properties change. 
+            MessageBus.Current.Listen<ObservableCollection<IVariableModel>>("VariableList")
+                .Subscribe((varList) =>
+                {
+                    // Unsubscribe from previous variable events if initialization has happened previously.
+                    if (_plotConfigVariables != null)
+                    {
+                        foreach (var variable in _plotConfigVariables)
+                        {
+                            variable.PropertyChanged -= Variable_PropertyChanged;
+                        }
+                    }
+        
+                    _plotConfigVariables = varList;
+        
+                    // Subscribe to each variable's PropertyChanged event.
+                    foreach (var variable in _plotConfigVariables)
+                    {
+                        variable.PropertyChanged += Variable_PropertyChanged;
+                    }
+
+                    return;
+
+                    // Define local function to handle property changes.
+                    void Variable_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+                    {
+                        if (_plotFullHistory &&
+                            e.PropertyName == nameof(IVariableModel.IsChecked) || 
+                            e.PropertyName == nameof(IVariableModel.Name))
+                        {
+                            // Request a UI update if a variable property changes in history mode,
+                            // since the active UI timer is off and does not handle it.
+                            Dispatcher.UIThread.InvokeAsync(() => UpdatePlot(null, null));
+                        }
+                    }
+                });
             
             // Enable data generator for testing:
             if (_enableDataGeneratorTesting) // Enable data generator
             {
+                _plotConfigVariables = [];
                 _dataGenerator = new DataGenerator();
                 _dataGenerator.DataAvailable += () =>
                 {
@@ -124,7 +178,7 @@ namespace RealtimePlottingApp.ViewModels
         
         // =============== Graph Update Methods =============== //
 
-        private void UpdatePlot(object? sender, ElapsedEventArgs e)
+        private void UpdatePlot(object? sender, ElapsedEventArgs? e)
         {
             double[] xDataDouble, yDataDouble;
             
@@ -132,9 +186,9 @@ namespace RealtimePlottingApp.ViewModels
             lock (_graphData)
             {
                 int totalPoints = _graphData.XData.Count;
-                // Plot last ~1000 points. Performance seems great,
+                // Plot last `WindowWidth` points. Performance seems good  up to the tens of thousands,
                 // and trying to fit more on screen during plotting is unreasonable.
-                int candidate = (!_plotFullHistory && totalPoints > 1000) ? totalPoints - 1000 : 0;
+                int candidate = (!_plotFullHistory && totalPoints > (int)WindowWidth) ? totalPoints - (int)WindowWidth : 0;
                 
                 // Ensures sub-array will start at a position that aligns with the interleaved data structure
                 int startIndex = candidate - (candidate % _uniqueVars);
@@ -168,7 +222,12 @@ namespace RealtimePlottingApp.ViewModels
                     // SignalXY Preconditions, which when met allows for greater performance than ScatterLine Plotting:
                     // "New data points must have an X value that is greater to or equal to the previous one."
                     SignalXY signal = LinePlot.Plot.Add.SignalXY(xVar, yVar);
-                    signal.LegendText = $"Var {v+1}";
+                    signal.LegendText = _plotConfigVariables.Count > v 
+                        ? _plotConfigVariables[v].Name : $"Var {v+1}"; // Fallback
+                    
+                    // Do not plot the variable if visibility is unchecked UI
+                    if (_plotConfigVariables.Count > v && !_plotConfigVariables[v].IsChecked)
+                        signal.IsVisible = false;
                 }
         
                 if (!_plotFullHistory && xDataDouble.Length > 0)
@@ -197,7 +256,7 @@ namespace RealtimePlottingApp.ViewModels
         private void EnableFullHistory()
         {
             _plotFullHistory = true;
-            UpdatePlot(null, null!); // Plot the full history one last time before stopping updates
+            UpdatePlot(null, null); // Plot the full history one last time before stopping updates
         }
         
         //================ Data receive handlers =============== //
