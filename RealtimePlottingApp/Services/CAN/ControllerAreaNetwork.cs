@@ -20,20 +20,15 @@ namespace RealtimePlottingApp.Services.CAN
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                // TODO: Might want something else than prints here eventually.
-                Console.WriteLine("Using SocketCAN for Linux.");
+                // Console.WriteLine("Using SocketCAN for Linux.");
                 return new SocketCanBus();
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                // TODO: Might want something else than prints here eventually.
-                Console.WriteLine("Using PCAN for Windows.");
+                // Console.WriteLine("Using PCAN for Windows.");
                 return new PeakCanBus();
             }
-            else
-            {
-                throw new PlatformNotSupportedException("Only Windows and Linux are supported.");
-            }
+            throw new PlatformNotSupportedException("Only Windows and Linux are supported for CAN.");
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
+using System.Collections.Concurrent;
 using SocketCANSharp;
 using System.Threading;
 using System.Net.Sockets;
@@ -22,6 +22,8 @@ namespace RealtimePlottingApp.Services.CAN
         private RawCanSocket? _socket;
         // Thread for receiving messages from the CAN bus to avoid blocking the main thread
         private Thread? _receiveThread;
+        // Thread for processing queued messages.
+        private Thread? _processThread;
         // Flag to indicate if the CAN bus is running
         private volatile bool _running;
         // Event for handling received messages in order to notify the application.
@@ -31,20 +33,35 @@ namespace RealtimePlottingApp.Services.CAN
         public event Action<uint, byte[]>? MessageReceived;
         // Maximum length of CAN data in bytes
         private const int MaxCanDataLength = 8;
-        // High precision system clock timer
-        private readonly Stopwatch timestamp = new Stopwatch();
+        
+        // Concurrent queue which holds received messages
+        private readonly ConcurrentQueue<(uint canId, int length, byte[] buffer)> _messageQueue 
+            = new ConcurrentQueue<(uint canId, int length, byte[] buffer)>();
+        
+        // Preallocated pool of byte arrays
+        private readonly ConcurrentQueue<byte[]?> _bufferPool = new ConcurrentQueue<byte[]?>();
 
+        public SocketCanBus()
+        {
+            // Preallocate buffers to be reused as a receive pool
+            for (int i = 0; i < 100; i++)
+            {
+                _bufferPool.Enqueue(new byte[MaxCanDataLength]);
+            }
+        }
+        
         public bool Connect(string interfaceName)
         {
             try
             {
                 // Get the CanNetworkInterface by name
-                var canInterface = CanNetworkInterface.GetAllInterfaces(true).First(iface => iface.Name.Equals(interfaceName));
+                CanNetworkInterface canInterface = CanNetworkInterface
+                    .GetAllInterfaces(true)
+                    .First(iface => iface.Name.Equals(interfaceName));
 
                 // Ensure we found a valid interface
                 if (canInterface == null)
                 {
-                    // TODO: Might want something else than prints here eventually.
                     Console.WriteLine($"CAN interface {interfaceName} not found.");
                     return false;
                 }
@@ -59,20 +76,21 @@ namespace RealtimePlottingApp.Services.CAN
                 // Start the receiving thread in the background to read messages
                 _receiveThread = new Thread(ReceiveMessages) { IsBackground = true };
                 _receiveThread.Start();
-
-                // TODO: Might want something else than prints here eventually.
+                
+                // Start a processing thread to handle messages from queue
+                _processThread = new Thread(ProcessMessages) { IsBackground = true};
+                _processThread.Start();
+                
                 Console.WriteLine($"Successfully connected to {interfaceName}.");
                 return true;
             }
             catch (SocketException e)
             {
-                // TODO: Might want something else than prints here eventually.
                 Console.WriteLine($"SocketCAN Connection Error: {e.Message}");
                 return false;
             }
             catch (Exception ex)
             {
-                // TODO: Might want something else than prints here eventually.
                 Console.WriteLine($"Error: {ex.Message}");
                 return false;
             }
@@ -82,13 +100,17 @@ namespace RealtimePlottingApp.Services.CAN
         {
             // Tell receive thread to stop and close the socket
             _running = false;
-            // Ensure the thread is actually exists and is alive before trying to join
+            // Ensure the threads actually exists and is alive before trying to join
             if (_receiveThread != null && _receiveThread.IsAlive)
             {
                 _receiveThread.Join();
             }
+
+            if (_processThread != null && _processThread.IsAlive)
+            {
+                _processThread.Join();
+            }
             _socket?.Close();
-            timestamp.Stop(); // Stop timer too if it's running.
         }
 
         public int SendMessage(uint canId, byte[] data)
@@ -118,8 +140,6 @@ namespace RealtimePlottingApp.Services.CAN
 
         private void ReceiveMessages()
         {
-            // Start a stopwatch using system clock ticks for high precision timing
-            timestamp.Start();
             while (_running)
             {
                 try
@@ -129,21 +149,58 @@ namespace RealtimePlottingApp.Services.CAN
 
                     if (frame.Length > 0 && frame.Data != null)
                     {
-                        // This should allow for a microsecond-accuracy timer using system clock.
-                        // TODO: Probably want to decrease this to milliseconds anyways, can use timestamp.ElapsedMilliseconds then,
-                        // the Peak version also supports milliseconds similarily. Would make for a uniform time measurement, albeit
-                        // with a *slightly* higher accuracy for the windows peak driver as it uses peak timestamps rather than application stamps.
-                        long timestampInMicroseconds = (timestamp.ElapsedTicks * 1_000_000L) / Stopwatch.Frequency;
-                        
-                        byte[] data = frame.Data.Take(frame.Length).ToArray();
-                        MessageReceived?.Invoke(frame.CanId, data);
+                        if (!_bufferPool.TryDequeue(out byte[]? buffer))
+                        {
+                            // Fallback if pool isn't enough. We prefer to not allocate new ones and use the
+                            // pool to save recieve performance and leave less work for garbage collector.
+                            buffer = new byte[MaxCanDataLength];
+                        }
+                        // Copy data into the borrowed buffer.
+                        if (buffer == null) continue;
+                        Array.Copy(frame.Data, buffer, frame.Length);
+
+                        // Enqueue the message for processing.
+                        _messageQueue.Enqueue((frame.CanId, frame.Length, buffer));
                     }
                 }
                 catch (SocketException e)
                 {
-                    // TODO: Might want something else than prints here eventually.
                     Console.WriteLine($"Error receiving message: {e.Message}");
                     break;
+                }
+            }
+        }
+        
+        private void ProcessMessages()
+        {
+            while (_running)
+            {
+                try
+                {
+                   
+                    while (_messageQueue.TryDequeue(out var msg))
+                    {
+                        try
+                        {
+                            MessageReceived?.Invoke(msg.canId, msg.buffer.Take(msg.length).ToArray());
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Error in MessageReceived handler: {ex.Message}");
+                        }
+                        _bufferPool.Enqueue(msg.buffer);
+                    }
+                    
+                    // Sleep shortly to reduce CPU usage if no messages are in the queue.
+                    if (_messageQueue.IsEmpty)
+                    {
+                        Thread.Sleep(1);
+                    }
+                    
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error processing messages: {e.Message}");
                 }
             }
         }
