@@ -1,0 +1,39 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="RealtimePlottingApp.Views.FooterView"
+             x:DataType="viewmodel:FooterViewModel">
+    
+    <!-- Set Data Context -->
+    <UserControl.DataContext>
+        <viewmodel:FooterViewModel />
+    </UserControl.DataContext>
+    
+    <!--  FOOTER DEFINITION  -->
+    <!-- Communication Interface Status -->
+    <Grid Background="#EEEEEE" Height="30" ColumnDefinitions="Auto,*,Auto">
+        <Label FontFamily="Segoe UI" Grid.Column="0" 
+               VerticalAlignment="Center" FontWeight="ExtraLight" 
+               Content="{Binding CommInterfaceStatus}">
+        </Label>
+            
+        <!-- GitHub Repo Button -->
+        <Button Grid.Column="2"
+                Background="#EEEEEE"
+                Command="{Binding OnGithubClick}"
+                CornerRadius="9999"
+                Width="25"
+                Height="25"
+                Margin="0,0,5,0">
+            <Image Source="../Assets/GithubLogo.png"
+                   Width="24"
+                   Height="24"
+                   RenderOptions.BitmapInterpolationMode="HighQuality"></Image>
+        </Button>
+        
+    </Grid>
+    
+</UserControl>

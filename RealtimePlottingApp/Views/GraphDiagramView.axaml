@@ -1,0 +1,28 @@
+﻿<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:sp="clr-namespace:ScottPlot.Avalonia;assembly=ScottPlot.Avalonia"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="RealtimePlottingApp.Views.GraphDiagramView"
+             x:DataType="viewmodel:GraphDiagramViewModel">
+    
+    <!-- Set Data Context -->
+    <UserControl.DataContext>
+        <viewmodel:GraphDiagramViewModel />
+    </UserControl.DataContext>
+    
+    <!--  GRAPH/DIAGRAM DEFINITION (Using ScottPlot) -->
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="{Binding Row1Height}" />
+            <RowDefinition Height="{Binding Row2Height}" />
+        </Grid.RowDefinitions>
+
+        <sp:AvaPlot x:Name="Plot" Grid.Row="0" IsVisible="{Binding Plot1Visible}" />
+        <sp:AvaPlot x:Name="Plot2" Grid.Row="1" IsVisible="{Binding Plot2Visible}" />
+    </Grid>
+
+    
+</UserControl>
