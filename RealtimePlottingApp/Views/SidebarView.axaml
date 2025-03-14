@@ -3,7 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:Class="RealtimePlottingApp.Views.SidebarView"
              x:DataType="viewmodel:SidebarViewModel">
     
@@ -43,7 +43,7 @@
 
                     <!-- ComboBox to select CAN or UART -->
                     <ComboBox Grid.Row="1" 
-                              SelectedIndex="1"
+                              SelectedIndex="0"
                               SelectedItem="{Binding SelectedCommunicationInterface}"
                               MaxDropDownHeight="100" 
                               HorizontalAlignment="Center" 
@@ -61,11 +61,107 @@
                     <!-- Elements to show if CAN is selected -->
                     <StackPanel Grid.Row="2"
                                 IsVisible="{Binding IsCanSelected}">
+                        
+                        <!-- CAN Interface: -->
                         <TextBlock HorizontalAlignment="Center"
                                    Margin="0,10,0,0">
-                            CAN CONFIG TODO:
+                            CAN Interface:
                         </TextBlock>
-                        <TextBox Watermark="Some CAN input"></TextBox>
+                        <TextBox Watermark="e.g. PCAN-USB1, can0"
+                                 Margin="0,5,0,0"
+                                 Text="{Binding CanInterfaceInput}">
+                            <ToolTip.Tip>
+                                The name of the CAN interface used to receive data.
+                            </ToolTip.Tip>
+                        </TextBox>
+                        
+                        <!-- Bit rate -->
+                        
+                        <TextBlock HorizontalAlignment="Center"
+                                   Margin="0,10,0,0">
+                            Bit rate:
+                        </TextBlock>
+                        <ComboBox SelectedIndex="0"
+                                  HorizontalAlignment="Center" 
+                                  Margin="0,5,0,0" 
+                                  Width="185"
+                                  IsEnabled="True"
+                                  SelectedItem="{Binding SelectedBitRate}">
+                            <ComboBoxItem>5 kBit/s</ComboBoxItem><ComboBoxItem>10 kBit/s</ComboBoxItem>
+                            <ComboBoxItem>20 kBit/s</ComboBoxItem><ComboBoxItem>33 kBit/s</ComboBoxItem>
+                            <ComboBoxItem>47 kBit/s</ComboBoxItem><ComboBoxItem>50 kBit/s</ComboBoxItem>
+                            <ComboBoxItem>83 kBit/s</ComboBoxItem><ComboBoxItem>95 kBit/s</ComboBoxItem>
+                            <ComboBoxItem>100 kBit/s</ComboBoxItem><ComboBoxItem>125 kBit/s</ComboBoxItem>
+                            <ComboBoxItem>250 kBit/s</ComboBoxItem><ComboBoxItem>500 kBit/s</ComboBoxItem>
+                            <ComboBoxItem>800 kBit/s</ComboBoxItem><ComboBoxItem>1 MBit/s</ComboBoxItem>
+                            <ToolTip.Tip>
+                                Selection of standard bit rates for PEAK CAN.
+                                Defines the standard rate at which the data is read.
+                                On Linux, this is set via SocketCAN, and not the UI. 
+                            </ToolTip.Tip>
+                        </ComboBox>
+                        
+                        <!-- CAN ID Filter -->
+                        <TextBlock HorizontalAlignment="Center"
+                                   Margin="0,10,0,0">
+                            CAN ID Filter:
+                        </TextBlock>
+                        <NumericUpDown Watermark="e.g. 100"
+                                       Increment="1"
+                                       Minimum="0"
+                                       Maximum="2048"
+                                       Margin="0,5,0,0"
+                                       Value="{Binding CanIdFilter}">
+                            <ToolTip.Tip>
+                                Enter a CAN ID to filter.
+                                This will filter based on the selected CAN ID.
+                            </ToolTip.Tip>
+                        </NumericUpDown>
+
+                        <!-- MaskedTextBox for 8 Byte Data Input -->
+                        <TextBlock HorizontalAlignment="Center" Margin="0,10,0,0">
+                            Define CAN Data Payload:
+                        </TextBlock>
+                        
+                        <Border BorderBrush="Black" BorderThickness="1" Padding="5">
+                            <MaskedTextBox Mask="aa:aa:aa:aa:aa:aa:aa:aa" 
+                                           FontSize="14" 
+                                           HorizontalAlignment="Center" 
+                                           Margin="10,5,10,5"
+                                           Watermark="Enter CAN Data (8 bytes)"
+                                           Text="{Binding CanDataMask}">
+                                <ToolTip.Tip>
+                                    <TextBlock>
+                                        Enter a mask for the HEX values representing 
+                                        the 8 bytes of CAN data, with the following formatting:
+                                        
+                                        <LineBreak/>
+                                        
+                                        <TextBlock Margin="5,5,0,0">
+                                            <Run Text="Numbers [1..9]" FontWeight="Bold"/> 
+                                            Represents a data mask <LineBreak />
+                                            for variables [1..9]
+                                        </TextBlock>
+                                        
+                                        <LineBreak/> <LineBreak />
+                                        Example: __:11:__:22:2_:__:__:__ <LineBreak />
+                                        This will mask byte 2 as Var 1,<LineBreak /> 
+                                        and byte 4 + half of byte 5 (12 bits) as Var 2.
+                                        <LineBreak/> <LineBreak />
+                                        <TextBlock Margin="5,5,0,0">
+                                            <Run Text="T" FontWeight="Bold"/> 
+                                            Represents a timestamp
+                                        </TextBlock>
+                                        
+                                        <LineBreak/> <LineBreak />
+                                        Example: __:11:__:22:2_:__:TT:TT <LineBreak />
+                                        This will mask the variables as before,
+                                        but use byte 7 and 8 as timestamps for X-Axis 
+                                        when plotting Variable 1 and 2.
+                                    </TextBlock>
+                                </ToolTip.Tip>
+                            </MaskedTextBox>
+                        </Border>
                     </StackPanel>
                     
                     <!-- Elements to show if UART is selected -->
@@ -86,7 +182,7 @@
                             </ToolTip.Tip>
                         </TextBox>
                         
-                        <!-- BaudRate Port: -->
+                        <!-- Baud rate -->
                         <TextBlock HorizontalAlignment="Center"
                                    Margin="0,10,0,0">
                             Baud rate:

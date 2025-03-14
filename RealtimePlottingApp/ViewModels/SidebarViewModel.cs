@@ -13,13 +13,13 @@ namespace RealtimePlottingApp.ViewModels
     public class SidebarViewModel : ViewModelBase
     {
         // Private variables:
-        private bool _showSidebar = true;
-        public bool ShowSidebar => _showSidebar;
-        private bool _isConnected = false;
+        public bool ShowSidebar { get; private set; } = true;
+
+        private bool _isConnected; // false default
         
         // ---------- Data binding variables: ----------- //
         // Data binding for the selected ComboBoxItem
-        private ComboBoxItem _selectedCommunicationInterface = null;
+        private ComboBoxItem _selectedCommunicationInterface;
         public ComboBoxItem SelectedCommunicationInterface
         {
             get => _selectedCommunicationInterface;
@@ -46,7 +46,12 @@ namespace RealtimePlottingApp.ViewModels
         public bool IsUartSelected => _selectedCommunicationInterface.Content?.ToString() == "UART";
         
         // Data binding for Connect button's "isEnabled" field. Ensures required fields are filled in before connecting.
-        public bool IsConnectReady => (IsUartSelected && (IsValidComPortFormat(_comPortInput)) && (_baudRateInput > 0) );
+        public bool IsConnectReady => 
+        (
+            (IsUartSelected && (IsValidComPortFormat(_comPortInput)) && (_baudRateInput > 0)) 
+                ||
+            (IsCanSelected && _canInterfaceInput?.Length > 0 && _canIdFilter is > 0 && _canDataMask.Contains('T'))
+        );
         
         // Update Frequency Slider.
         private int? _updateFrequencySlider = 100; // Default value
@@ -76,10 +81,57 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
 
-        // ----- CAN Data Bindings ----- //
-        // TODO : Implement CAN data bindings
-        
-        // ----- UART Data Bindings ----- //
+        // ========== CAN Data Bindings ========== //
+        // CAN-Interface Input
+        private string? _canInterfaceInput = "";
+
+        public string? CanInterfaceInput
+        {
+            get => _canInterfaceInput;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _canInterfaceInput, value);
+                this.RaisePropertyChanged(nameof(IsConnectReady));
+            }
+        }
+
+        // Bit Rate
+        private ComboBoxItem _selectedBitRate;
+
+        public ComboBoxItem SelectedBitRate
+        {
+            get => _selectedBitRate;
+            set => this.RaiseAndSetIfChanged(ref _selectedBitRate, value);
+        }
+
+        // CAN ID Filter
+        private int? _canIdFilter;
+
+        public int? CanIdFilter
+        {
+            get => _canIdFilter;
+            set
+            {
+                // Allow null value to be set, but don't allow IsConnectReady to be true then.
+                this.RaiseAndSetIfChanged(ref _canIdFilter, value);
+                this.RaisePropertyChanged(nameof(IsConnectReady));
+            }
+        }
+
+        // CAN Data Payload Mask
+        private string _canDataMask = "__:__:__:__:__:__:__:__"; // Default value, nothing masked.
+
+        public string CanDataMask
+        {
+            get => _canDataMask;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _canDataMask, value);
+                this.RaisePropertyChanged(nameof(IsConnectReady));
+            }
+        }
+
+        // ========== UART Data Bindings ========== //
         // COM-Port Input
         private string? _comPortInput;
 
@@ -129,7 +181,7 @@ namespace RealtimePlottingApp.ViewModels
         }
         
         // Payload data size Input
-        private ComboBoxItem _selectedDataSize = null;
+        private ComboBoxItem _selectedDataSize;
 
         public ComboBoxItem SelectedDataSize
         {
@@ -140,6 +192,7 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
         
+        // ========== CommInterface-independent Data Bindings ========== //
         // ConnectButton text
         private string _connectButtonText = "Connect";
 
@@ -191,7 +244,7 @@ namespace RealtimePlottingApp.ViewModels
                 // Toggle sidebar
                 if (msg.Equals("ToggleSidebar"))
                 {
-                    _showSidebar = !_showSidebar;
+                    ShowSidebar = !ShowSidebar;
                     this.RaisePropertyChanged(nameof(ShowSidebar));
                 }
                 
