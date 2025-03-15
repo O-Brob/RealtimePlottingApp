@@ -101,9 +101,22 @@ namespace RealtimePlottingApp.ViewModels
         public ComboBoxItem SelectedBitRate
         {
             get => _selectedBitRate;
-            set => this.RaiseAndSetIfChanged(ref _selectedBitRate, value);
+            set
+            {
+                // On linux, we set bit rate via SocketCAN Configuration.
+                // We give user information that this should be done here instead.
+                if (OperatingSystem.IsLinux())
+                {
+                    value.Content = "Set via SocketCAN";
+                    this.RaiseAndSetIfChanged(ref _selectedBitRate, value);
+                    return;
+                }
+                this.RaiseAndSetIfChanged(ref _selectedBitRate, value);
+            }
         }
 
+        public static bool CanBitrateEnabled => OperatingSystem.IsWindows(); // On Linux, we use SocketCan, not UI.
+        
         // CAN ID Filter
         private int? _canIdFilter;
 
@@ -227,7 +240,10 @@ namespace RealtimePlottingApp.ViewModels
             }
             else if (IsCanSelected)
             {
-                // TODO: Implement CAN Connection request message
+                MessageBus.Current.SendMessage(
+                    !_isConnected
+                    ? $"ConnectCan:CanInterface:{_canInterfaceInput},BitRate:{_selectedBitRate.Content},CanIdFilter:{_canIdFilter},DataPayloadMask:{_canDataMask}"
+                    : "DisconnectCan");
             }
         }
         // ---------- Constructor ---------- //

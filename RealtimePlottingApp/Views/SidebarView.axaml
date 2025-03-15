@@ -85,7 +85,7 @@
                                   HorizontalAlignment="Center" 
                                   Margin="0,5,0,0" 
                                   Width="185"
-                                  IsEnabled="True"
+                                  IsEnabled="{Binding CanBitrateEnabled}"
                                   SelectedItem="{Binding SelectedBitRate}">
                             <ComboBoxItem>5 kBit/s</ComboBoxItem><ComboBoxItem>10 kBit/s</ComboBoxItem>
                             <ComboBoxItem>20 kBit/s</ComboBoxItem><ComboBoxItem>33 kBit/s</ComboBoxItem>
