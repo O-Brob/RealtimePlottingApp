@@ -4,6 +4,7 @@ using SocketCANSharp;
 using System.Threading;
 using System.Net.Sockets;
 using System.Linq;
+using RealtimePlottingApp.Models;
 using SocketCANSharp.Network;
 
 namespace RealtimePlottingApp.Services.CAN
@@ -30,7 +31,7 @@ namespace RealtimePlottingApp.Services.CAN
         // It is essentially an observer pattern implementation for the CAN bus,
         // where the application can subscribe to the event to receive messages
         // and handle them using a lambda expression or a method.
-        public event Action<uint, byte[]>? MessageReceived;
+        public event EventHandler<CanMessageReceivedEvent>? MessageReceived;
         // Maximum length of CAN data in bytes
         private const int MaxCanDataLength = 8;
         
@@ -182,7 +183,8 @@ namespace RealtimePlottingApp.Services.CAN
                     {
                         try
                         {
-                            MessageReceived?.Invoke(msg.canId, msg.buffer.Take(msg.length).ToArray());
+                            MessageReceived?.Invoke(this, new CanMessageReceivedEvent
+                                (msg.canId, msg.buffer.Take(msg.length).ToArray()));
                         }
                         catch (Exception ex)
                         {

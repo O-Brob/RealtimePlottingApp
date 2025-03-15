@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using Peak.Can.Basic;
 using Peak.Can.Basic.BackwardCompatibility;
+using RealtimePlottingApp.Models;
 
 namespace RealtimePlottingApp.Services.CAN
 {
@@ -24,7 +25,7 @@ namespace RealtimePlottingApp.Services.CAN
         // Event for handling received messages in order to notify the application.
         // It is essentially an observer pattern implementation for the CAN bus,
         // where the application can subscribe to the event to receive messages.
-        public event Action<uint, byte[]>? MessageReceived;
+        public event EventHandler<CanMessageReceivedEvent>? MessageReceived;
         // Maximum length of CAN data in bytes
         private const int MaxCanDataLength = 8;
         
@@ -156,7 +157,8 @@ namespace RealtimePlottingApp.Services.CAN
                     {
                         try
                         {
-                            MessageReceived?.Invoke(msg.canId, msg.buffer.Take(msg.length).ToArray());
+                            MessageReceived?.Invoke(this, new CanMessageReceivedEvent
+                                (msg.canId, msg.buffer.Take(msg.length).ToArray()));
                         }
                         catch (Exception ex)
                         {
