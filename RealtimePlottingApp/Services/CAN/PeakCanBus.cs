@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using Peak.Can.Basic;
 using Peak.Can.Basic.BackwardCompatibility;
+using RealtimePlottingApp.Models;
 
 namespace RealtimePlottingApp.Services.CAN
 {
@@ -24,7 +26,7 @@ namespace RealtimePlottingApp.Services.CAN
         // Event for handling received messages in order to notify the application.
         // It is essentially an observer pattern implementation for the CAN bus,
         // where the application can subscribe to the event to receive messages.
-        public event Action<uint, byte[]>? MessageReceived;
+        public event EventHandler<CanMessageReceivedEvent>? MessageReceived;
         // Maximum length of CAN data in bytes
         private const int MaxCanDataLength = 8;
         
@@ -34,6 +36,10 @@ namespace RealtimePlottingApp.Services.CAN
         
         // Preallocated pool of byte arrays
         private readonly ConcurrentQueue<byte[]?> _bufferPool = new ConcurrentQueue<byte[]?>();
+        
+        // Stopwatch for timestamping messages.
+        private readonly Stopwatch _stopwatch;
+        private const int msInterval = 10; // Invoked resolution of timestamps.
 
         public PeakCanBus()
         {
@@ -42,43 +48,99 @@ namespace RealtimePlottingApp.Services.CAN
             {
                 _bufferPool.Enqueue(new byte[MaxCanDataLength]);
             }
+            
+            _stopwatch = new Stopwatch();
         }
         
-        public bool Connect(string interfaceName)
+        public void Connect(string interfaceName, string? bitrate)
         {
-            try
+            if (!TryGetPcanChannel(interfaceName, out _channel))
             {
-                if (!TryGetPcanChannel(interfaceName, out _channel))
-                {
-                    Console.WriteLine("Invalid CAN interface.");
-                    return false;
-                }
-
-                // TODO: Probably want to be able to set the baudrate via GUI or initialization.
-                TPCANStatus status = PCANBasic.Initialize((ushort)_channel, TPCANBaudrate.PCAN_BAUD_100K);
-                if (status != TPCANStatus.PCAN_ERROR_OK)
-                {
-                    Console.WriteLine($"PCAN Initialization failed: {status}");
-                    return false;
-                }
-
-                // Initialization has succeeded at this point, start receiving messages in background thread.
-                _running = true;
-                _receiveThread = new Thread(ReceiveMessages) { IsBackground = true };
-                _receiveThread.Start();
-                
-                // Start a processing thread to handle messages from queue
-                _processThread = new Thread(ProcessMessages) { IsBackground = true};
-                _processThread.Start();
-                
-                Console.WriteLine("Successfully connected to PEAK CAN bus.");
-                return true;
+                throw new Exception("Invalid PCAN interface name");
             }
-            catch (Exception ex)
+
+            // Determine baudrate based on the provided bitrate string.
+            TPCANBaudrate baudrate = TPCANBaudrate.PCAN_BAUD_100K; // default value
+            if (!string.IsNullOrEmpty(bitrate))
             {
-                Console.WriteLine($"Error: {ex.Message}");
-                return false;
+                switch (bitrate)
+                {
+                    case "1 MBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_1M;
+                        break;
+                    case "800 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_800K;
+                        break;
+                    case "500 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_500K;
+                        break;
+                    case "250 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_250K;
+                        break;
+                    case "125 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_125K;
+                        break;
+                    case "100 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_100K;
+                        break;
+                    case "95 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_95K;
+                        break;
+                    case "83 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_83K;
+                        break;
+                    case "50 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_50K;
+                        break;
+                    case "47 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_47K;
+                        break;
+                    case "33 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_33K;
+                        break;
+                    case "20 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_20K;
+                        break;
+                    case "10 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_10K;
+                        break;
+                    case "5 kBit/s":
+                        baudrate = TPCANBaudrate.PCAN_BAUD_5K;
+                        break;
+                    default:
+                        throw new Exception($"Unsupported bitrate: {bitrate}");
+                }
             }
+
+            // Initialize the channel with the determined baudrate.
+            TPCANStatus status = PCANBasic.Initialize((ushort)_channel, baudrate);
+            if (status != TPCANStatus.PCAN_ERROR_OK)
+            {
+                throw status switch
+                {
+                    // Common error, give more descriptive feedback
+                    TPCANStatus.PCAN_ERROR_NODRIVER => new Exception(
+                        "PCAN Initialization failed. The driver of the provided PCAN device " +
+                        "could not be loaded. Ensure the PCAN driver is detected by your PC."),
+                    // Common error, give more descr. feedback.
+                    TPCANStatus.PCAN_ERROR_ILLHW => new Exception(
+                        "PCAN Initialization failed. " +
+                        "The PCAN device could not be loaded."),
+                    _ => new Exception($"PCAN Initialization failed: {status}") // Fallback to "default" thrown message.
+                };
+            }
+            
+            // Start a fresh timer.
+            _stopwatch.Restart();
+
+            // Initialization has succeeded at this point, start receiving messages in background thread.
+            _running = true;
+            _receiveThread = new Thread(ReceiveMessages) { IsBackground = true };
+            _receiveThread.Start();
+            
+            // Start a processing thread to handle messages from queue
+            _processThread = new Thread(ProcessMessages) { IsBackground = true};
+            _processThread.Start();
         }
 
         public void Disconnect()
@@ -95,8 +157,8 @@ namespace RealtimePlottingApp.Services.CAN
                 _processThread.Join();
             }
             
+            _stopwatch.Reset(); // Stop & zero-set.
             PCANBasic.Uninitialize((ushort)_channel);
-            Console.WriteLine("Disconnected from PEAK CAN bus.");
         }
 
         public int SendMessage(uint canId, byte[] data)
@@ -156,7 +218,15 @@ namespace RealtimePlottingApp.Services.CAN
                     {
                         try
                         {
-                            MessageReceived?.Invoke(msg.canId, msg.buffer.Take(msg.length).ToArray());
+                            // Calculate timestamp as integer value, and divide by msInterval
+                            // to get a specified resolution
+                            uint timestamp = (uint)(_stopwatch.ElapsedMilliseconds / msInterval);
+                            
+                            MessageReceived?.Invoke(this, new CanMessageReceivedEvent(
+                                msg.canId, 
+                                msg.buffer.Take(msg.length).ToArray(),
+                                timestamp)
+                            );
                         }
                         catch (Exception ex)
                         {

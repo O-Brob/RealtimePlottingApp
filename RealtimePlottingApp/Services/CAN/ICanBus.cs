@@ -1,4 +1,7 @@
-﻿namespace RealtimePlottingApp.Services.CAN
+﻿using System;
+using RealtimePlottingApp.Models;
+
+namespace RealtimePlottingApp.Services.CAN
 {
     /// <summary>
     /// Interface for a CAN bus.
@@ -8,7 +11,7 @@
     public interface ICanBus
     {
         // Connect to the CAN bus at the specified interface  
-        bool Connect(string interfaceName);
+        void Connect(string interfaceName, string? bitrate);
 
         // Disconnect from the CAN bus
         void Disconnect();
@@ -18,6 +21,6 @@
         int SendMessage(uint canId, byte[] data);
         
         // Receive a message from the CAN bus and invoke the MessageReceived event.
-        event System.Action<uint, byte[]>? MessageReceived;
+        event EventHandler<CanMessageReceivedEvent>? MessageReceived;
     }
 }
