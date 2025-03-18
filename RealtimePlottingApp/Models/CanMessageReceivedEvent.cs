@@ -16,17 +16,24 @@ namespace RealtimePlottingApp.Models
         /// Gets the data payload of the CAN message.
         /// </summary>
         public byte[] Data { get; }
-
+        
+        /// <summary>
+        /// Gets the timestamp of when the message was received by the application.
+        /// </summary>
+        public uint Timestamp { get; }
+        
         /// <summary>
         /// Initializes a new instance of the <see cref="CanMessageReceivedEvent"/> class.
         /// </summary>
         /// <param name="canId">The CAN message ID.</param>
         /// <param name="data">The received data payload.</param>
+        /// <param name="timestamp">The timestamp to accompany this data</param>
         /// <exception cref="ArgumentNullException">Thrown if the data argument is null.</exception>
-        public CanMessageReceivedEvent(uint canId, byte[] data)
+        public CanMessageReceivedEvent(uint canId, byte[] data, uint timestamp)
         {
             CanId = canId;
             Data = data ?? throw new ArgumentNullException(nameof(data));
+            Timestamp = timestamp;
         }
     }
 }

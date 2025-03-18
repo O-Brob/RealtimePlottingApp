@@ -45,6 +45,22 @@ namespace RealtimePlottingApp.ViewModels
                 {
                     CommInterfaceStatus = $"UART Error: {msg[10..]}"; // Trim string identifier
                 }
+                
+                else if (msg.Equals("CANConnected"))
+                {
+                    CommInterfaceStatus = "CAN: Connected";
+                }
+                
+                else if (msg.Equals("CANDisconnected"))
+                {
+                    CommInterfaceStatus = "CAN: Disconnected";
+                }
+                
+                // Message containing CAN error statuses to display:
+                else if (msg.StartsWith("CANError:"))
+                {
+                    CommInterfaceStatus = $"CAN Error: {msg[9..]}";
+                }
             });
             
             // Initialize ICommands

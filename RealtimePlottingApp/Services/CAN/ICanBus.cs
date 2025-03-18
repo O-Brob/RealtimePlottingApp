@@ -11,7 +11,7 @@ namespace RealtimePlottingApp.Services.CAN
     public interface ICanBus
     {
         // Connect to the CAN bus at the specified interface  
-        bool Connect(string interfaceName);
+        void Connect(string interfaceName, string? bitrate);
 
         // Disconnect from the CAN bus
         void Disconnect();

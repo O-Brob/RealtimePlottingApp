@@ -1,6 +1,8 @@
 ﻿using ReactiveUI;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Windows.Input;
@@ -19,8 +21,8 @@ namespace RealtimePlottingApp.ViewModels
         
         // ---------- Data binding variables: ----------- //
         // Data binding for the selected ComboBoxItem
-        private ComboBoxItem _selectedCommunicationInterface;
-        public ComboBoxItem SelectedCommunicationInterface
+        private ComboBoxItem? _selectedCommunicationInterface;
+        public ComboBoxItem? SelectedCommunicationInterface
         {
             get => _selectedCommunicationInterface;
             set
@@ -42,15 +44,21 @@ namespace RealtimePlottingApp.ViewModels
         }
 
         // Data binding for Conditional CAN/UART elements
-        public bool IsCanSelected => _selectedCommunicationInterface.Content?.ToString() == "CAN";
-        public bool IsUartSelected => _selectedCommunicationInterface.Content?.ToString() == "UART";
+        public bool IsCanSelected => _selectedCommunicationInterface?.Content?.ToString() == "CAN";
+        public bool IsUartSelected => _selectedCommunicationInterface?.Content?.ToString() == "UART";
         
         // Data binding for Connect button's "isEnabled" field. Ensures required fields are filled in before connecting.
         public bool IsConnectReady => 
         (
+            // Check UART has valid inputs, if selected.
             (IsUartSelected && (IsValidComPortFormat(_comPortInput)) && (_baudRateInput > 0)) 
                 ||
-            (IsCanSelected && _canInterfaceInput?.Length > 0 && _canIdFilter is > 0 && _canDataMask.Contains('T'))
+            // Check CAN has valid inputs, if selected.
+            (IsCanSelected && _canInterfaceInput?.Length > 0 && _canIdFilter is > 0
+             // Ensure a variable 1 is masked. If any additional variable n exist, the variable n-1 must also.
+             && _canDataMask.Any(c => c == '1') && 
+             !_canDataMask.Where(c => c is >= '1' and <= '9')  // Only check the following for numbers:
+                 .Any(c => c > '1' && !_canDataMask.Contains((char)(c - 1))))
         );
         
         // Update Frequency Slider.
@@ -96,9 +104,9 @@ namespace RealtimePlottingApp.ViewModels
         }
 
         // Bit Rate
-        private ComboBoxItem _selectedBitRate;
+        private ComboBoxItem? _selectedBitRate;
 
-        public ComboBoxItem SelectedBitRate
+        public ComboBoxItem? SelectedBitRate
         {
             get => _selectedBitRate;
             set
@@ -107,8 +115,10 @@ namespace RealtimePlottingApp.ViewModels
                 // We give user information that this should be done here instead.
                 if (OperatingSystem.IsLinux())
                 {
+                    if (value == null) return;
                     value.Content = "Set via SocketCAN";
                     this.RaiseAndSetIfChanged(ref _selectedBitRate, value);
+
                     return;
                 }
                 this.RaiseAndSetIfChanged(ref _selectedBitRate, value);
@@ -194,9 +204,9 @@ namespace RealtimePlottingApp.ViewModels
         }
         
         // Payload data size Input
-        private ComboBoxItem _selectedDataSize;
+        private ComboBoxItem? _selectedDataSize;
 
-        public ComboBoxItem SelectedDataSize
+        public ComboBoxItem? SelectedDataSize
         {
             get => _selectedDataSize;
             set
@@ -235,14 +245,14 @@ namespace RealtimePlottingApp.ViewModels
             {
                 MessageBus.Current.SendMessage(
                     !_isConnected
-                        ? $"ConnectUart:ComPort:{_comPortInput},BaudRate:{_baudRateInput},DataSize:{_selectedDataSize.Content},UniqueVars:{_uniqueVariableCount}"
+                        ? $"ConnectUart:ComPort:{_comPortInput},BaudRate:{_baudRateInput},DataSize:{_selectedDataSize?.Content},UniqueVars:{_uniqueVariableCount}"
                         : "DisconnectUart");
             }
             else if (IsCanSelected)
             {
                 MessageBus.Current.SendMessage(
                     !_isConnected
-                    ? $"ConnectCan:CanInterface:{_canInterfaceInput},BitRate:{_selectedBitRate.Content},CanIdFilter:{_canIdFilter},DataPayloadMask:{_canDataMask}"
+                    ? $"ConnectCan:CanInterface:{_canInterfaceInput},BitRate:{_selectedBitRate?.Content},CanIdFilter:{_canIdFilter},DataPayloadMask:{_canDataMask}"
                     : "DisconnectCan");
             }
         }
@@ -265,7 +275,7 @@ namespace RealtimePlottingApp.ViewModels
                 }
                 
                 // Connection successful, enable "Disconnect" button.
-                else if (msg.Equals("UARTConnected"))
+                else if (msg.Equals("UARTConnected") || msg.Equals("CANConnected"))
                 {
                     _isConnected = true;
                     ConnectButtonText = "Disconnect";
@@ -274,10 +284,22 @@ namespace RealtimePlottingApp.ViewModels
                     
                     // Update Plot Config window's variable list to match the count on successful connect:
                     ObservableCollection<IVariableModel> newList = [];
-                    for (int i = 0; i < _uniqueVariableCount; i++)
+                    // For UART; add _uniqueVariableCount variables:
+                    if (msg.Equals("UARTConnected"))
                     {
-                        newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
+                        for (int i = 0; i < _uniqueVariableCount; i++)
+                            newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
                     }
+                    else if (msg.Equals("CANConnected"))
+                    {
+                        // For CAN; add a variable for each unique number in the mask:
+                        int numberOfCanVars = new HashSet<char>(
+                            _canDataMask.Where(c => char.IsDigit(c))
+                        ).Count;
+                        for(int i = 0; i < numberOfCanVars; i++)
+                            newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
+                    }
+                    
                     Variables = newList;
                     
                     // Notify other views that want an up-to-date access to the variables from when connection is made.
@@ -285,12 +307,13 @@ namespace RealtimePlottingApp.ViewModels
                 }
                 
                 // Disconnect successful, enable "Connect" button.
-                else if (msg.Equals("UARTDisconnected"))
+                else if (msg.Equals("UARTDisconnected") || msg.Equals("CANDisconnected"))
                 {
                     _isConnected = false;
                     ConnectButtonText = "Connect";
                     CommSelectorEnabled = true;
                 }
+                
             });
         }
         

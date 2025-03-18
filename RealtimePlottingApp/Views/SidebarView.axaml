@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
+             xmlns:converters="clr-namespace:RealtimePlottingApp.Converters"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:Class="RealtimePlottingApp.Views.SidebarView"
              x:DataType="viewmodel:SidebarViewModel">
@@ -11,6 +12,11 @@
     <UserControl.DataContext>
         <viewmodel:SidebarViewModel />
     </UserControl.DataContext>
+    
+    <!-- Set Hex Converter for filtering CAN IDs by HEX -->
+    <UserControl.Resources>
+        <converters:HexConverter x:Key="HexConverter"/>
+    </UserControl.Resources>
     
     <!--  SIDEBAR DEFINITION  -->
     <Border Background="#EEEEEE" 
@@ -69,7 +75,8 @@
                         </TextBlock>
                         <TextBox Watermark="e.g. PCAN-USB1, can0"
                                  Margin="0,5,0,0"
-                                 Text="{Binding CanInterfaceInput}">
+                                 Text="{Binding CanInterfaceInput}"
+                                 IsEnabled="{Binding CommSelectorEnabled}">
                             <ToolTip.Tip>
                                 The name of the CAN interface used to receive data.
                             </ToolTip.Tip>
@@ -82,9 +89,8 @@
                             Bit rate:
                         </TextBlock>
                         <ComboBox SelectedIndex="0"
-                                  HorizontalAlignment="Center" 
+                                  HorizontalAlignment="Stretch" 
                                   Margin="0,5,0,0" 
-                                  Width="185"
                                   IsEnabled="{Binding CanBitrateEnabled}"
                                   SelectedItem="{Binding SelectedBitRate}">
                             <ComboBoxItem>5 kBit/s</ComboBoxItem><ComboBoxItem>10 kBit/s</ComboBoxItem>
@@ -106,30 +112,35 @@
                                    Margin="0,10,0,0">
                             CAN ID Filter:
                         </TextBlock>
-                        <NumericUpDown Watermark="e.g. 100"
-                                       Increment="1"
-                                       Minimum="0"
-                                       Maximum="2048"
-                                       Margin="0,5,0,0"
-                                       Value="{Binding CanIdFilter}">
+                        <TextBox Watermark="e.g. 384 or 0x180"
+                                 Margin="0,5,0,0"
+                                 IsEnabled="{Binding CommSelectorEnabled}">
+                            <TextBox.Text>
+                                <Binding Path="CanIdFilter"
+                                         Mode="TwoWay"
+                                         Converter="{StaticResource HexConverter}"
+                                         UpdateSourceTrigger="PropertyChanged"/>
+                            </TextBox.Text>
                             <ToolTip.Tip>
-                                Enter a CAN ID to filter.
-                                This will filter based on the selected CAN ID.
+                                Enter a CAN ID to filter by.
+                                ID can be entered as decimal, or hex (0x...)
                             </ToolTip.Tip>
-                        </NumericUpDown>
+                        </TextBox>
+
 
                         <!-- MaskedTextBox for 8 Byte Data Input -->
                         <TextBlock HorizontalAlignment="Center" Margin="0,10,0,0">
-                            Define CAN Data Payload:
+                            CAN Data Variable Mask:
                         </TextBlock>
                         
                         <Border BorderBrush="Black" BorderThickness="1" Padding="5">
-                            <MaskedTextBox Mask="aa:aa:aa:aa:aa:aa:aa:aa" 
+                            <MaskedTextBox Mask="##:##:##:##:##:##:##:##" 
                                            FontSize="14" 
                                            HorizontalAlignment="Center" 
                                            Margin="10,5,10,5"
                                            Watermark="Enter CAN Data (8 bytes)"
-                                           Text="{Binding CanDataMask}">
+                                           Text="{Binding CanDataMask}"
+                                           IsEnabled="{Binding CommSelectorEnabled}">
                                 <ToolTip.Tip>
                                     <TextBlock>
                                         Enter a mask for the HEX values representing 
@@ -139,25 +150,18 @@
                                         
                                         <TextBlock Margin="5,5,0,0">
                                             <Run Text="Numbers [1..9]" FontWeight="Bold"/> 
-                                            Represents a data mask <LineBreak />
+                                            Represents a variable mask <LineBreak />
                                             for variables [1..9]
                                         </TextBlock>
                                         
                                         <LineBreak/> <LineBreak />
-                                        Example: __:11:__:22:2_:__:__:__ <LineBreak />
-                                        This will mask byte 2 as Var 1,<LineBreak /> 
-                                        and byte 4 + half of byte 5 (12 bits) as Var 2.
-                                        <LineBreak/> <LineBreak />
-                                        <TextBlock Margin="5,5,0,0">
-                                            <Run Text="T" FontWeight="Bold"/> 
-                                            Represents a timestamp
-                                        </TextBlock>
-                                        
-                                        <LineBreak/> <LineBreak />
-                                        Example: __:11:__:22:2_:__:TT:TT <LineBreak />
-                                        This will mask the variables as before,
-                                        but use byte 7 and 8 as timestamps for X-Axis 
-                                        when plotting Variable 1 and 2.
+                                        Example: 11:__:22:2_:__:33:__:33 <LineBreak />
+                                        This will mask byte 1 as Var 1,<LineBreak /> 
+                                        byte 3 + half of byte 4 (12 bits) as Var 2, <LineBreak />
+                                        and byte 6 + 8 (16 bits) as Var 3
+                                        <LineBreak /><LineBreak />
+                                        For each variable n outside of variable 1, <LineBreak />
+                                        the variable n-1 must also be defined in the mask.
                                     </TextBlock>
                                 </ToolTip.Tip>
                             </MaskedTextBox>
@@ -174,7 +178,8 @@
                         </TextBlock>
                         <TextBox Watermark="e.g. COM1, /dev/ttyS0"
                                  Margin="0,5,0,0"
-                                 Text="{Binding ComPortInput}">
+                                 Text="{Binding ComPortInput}"
+                                 IsEnabled="{Binding CommSelectorEnabled}">
                             <ToolTip.Tip>
                                 The name of the serial port interface used to receive UART data.
                                 If connections are refused, ensure the current user account on PC has
@@ -192,7 +197,8 @@
                                        Minimum="0"
                                        Maximum="999999999"
                                        Margin="0,5,0,0"
-                                       Value="{Binding BaudRateInput}">
+                                       Value="{Binding BaudRateInput}"
+                                       IsEnabled="{Binding CommSelectorEnabled}">
                             <ToolTip.Tip>
                                 A Baud Rate which matches that of the data sender.
                                 Defines the rate at which the data is transferred.
@@ -208,7 +214,8 @@
                                        Increment="1"
                                        Minimum="1"
                                        Maximum="50"
-                                       Margin="0,5,0,0">
+                                       Margin="0,5,0,0"
+                                       IsEnabled="{Binding CommSelectorEnabled}">
                             <ToolTip.Tip>
                                 The number of unique data variables that are to be received alongside
                                 a timestamp, each being plotted with its own line.
@@ -224,8 +231,7 @@
                         <ComboBox SelectedIndex="0"
                                   SelectedItem="{Binding SelectedDataSize}"
                                   MaxDropDownHeight="100"
-                                  HorizontalAlignment="Center"
-                                  Width="90"
+                                  HorizontalAlignment="Stretch"
                                   Margin="0,5,0,0">
                             <ToolTip.Tip>
                                 The bit-size of the data variables to be received from the UART.

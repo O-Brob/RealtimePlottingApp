@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -8,6 +9,7 @@ using Avalonia.Threading;
 using ReactiveUI;
 using RealtimePlottingApp.Models;
 using RealtimePlottingApp.Services;
+using RealtimePlottingApp.Services.CAN;
 using RealtimePlottingApp.Services.UART;
 using ScottPlot.Avalonia;
 using ScottPlot.Plottables;
@@ -19,6 +21,7 @@ namespace RealtimePlottingApp.ViewModels
     {
         // --- Data channels --- //
         private ISerialReader? _serialReader;
+        private ICanBus? _canBus;
         private DataGenerator? _dataGenerator;
         
         // --- Models --- //
@@ -30,10 +33,12 @@ namespace RealtimePlottingApp.ViewModels
         // --- Graph elements from View --- //
         public AvaPlot? LinePlot { get; set; }  // Line-plot assigned from View
         private int _uniqueVars = 1; // 1 Variable as default. Could change alongside UI config.
-        private ObservableCollection<IVariableModel> _plotConfigVariables;
+        private string _canDataPayloadMask = String.Empty; // Variable mask for the data payload during CAN reading.
+        private int _canIdFilter;
+        private ObservableCollection<IVariableModel>? _plotConfigVariables;
 
         // --- Plotting modes & restraints --- //
-        private const bool _enableDataGeneratorTesting = true;
+        private const bool _enableDataGeneratorTesting = false;
         private bool _plotFullHistory; // false default
         private double WindowWidth = 75;
 
@@ -88,6 +93,55 @@ namespace RealtimePlottingApp.ViewModels
                     catch (Exception e)
                     {
                         MessageBus.Current.SendMessage($"UARTError: {e.Message}");
+                    }
+                }
+                
+                // Try to parse CAN config. If parsing goes well, connect.
+                else if (msg.StartsWith("ConnectCan"))
+                {
+                    if (ParseCanConfig(msg, out string canInterface, out string bitRate, 
+                            out _canIdFilter, out _canDataPayloadMask))
+                    {
+                        try
+                        {
+                            ResetDataChannels(); // Ensure no channel exists for any medium
+                            _graphData.Clear(); // Clear graph data to plot new connection's data
+                            _canBus = ControllerAreaNetwork.Create();
+                            _canBus.MessageReceived += OnCanDataReceived;
+                            
+                            // Extract digits from mask to a Set to find out how many unique variables there are.
+                            _uniqueVars = new HashSet<char>(
+                                _canDataPayloadMask.Where(c => char.IsDigit(c))
+                            ).Count;
+                            
+                            if(OperatingSystem.IsWindows()) // On windows the gui-provided bitrate is used
+                                _canBus.Connect(canInterface, bitRate);
+                            else if (OperatingSystem.IsLinux()) // On Linux bitrate is not set via gui, but socketcan.
+                                _canBus.Connect(canInterface, null);
+                            
+                            _plotFullHistory = false; // Allow progressive plotting.
+                            _timer.Start(); // Start UI updates
+                            MessageBus.Current.SendMessage("CANConnected"); // Indicate success
+                        }
+                        catch (Exception e)
+                        {
+                            MessageBus.Current.SendMessage($"CANError: {e.Message}");
+                        }
+                    }
+                }
+                
+                // Message telling us to disconnect CAN
+                else if (msg.Equals("DisconnectCan"))
+                {
+                    try
+                    {
+                        ResetDataChannels();
+                        MessageBus.Current.SendMessage("CANDisconnected");
+                        EnableFullHistory();
+                    }
+                    catch (Exception e)
+                    {
+                        MessageBus.Current.SendMessage($"CANError: {e.Message}");
                     }
                 }
                 
@@ -188,7 +242,7 @@ namespace RealtimePlottingApp.ViewModels
                 int totalPoints = _graphData.XData.Count;
                 // Plot last `WindowWidth` points. Performance seems good  up to the tens of thousands,
                 // and trying to fit more on screen during plotting is unreasonable.
-                int candidate = (!_plotFullHistory && totalPoints > (int)WindowWidth) ? totalPoints - (int)WindowWidth : 0;
+                int candidate = (!_plotFullHistory && totalPoints > (int)WindowWidth * _uniqueVars) ? totalPoints - (int)WindowWidth * _uniqueVars : 0;
                 
                 // Ensures sub-array will start at a position that aligns with the interleaved data structure
                 int startIndex = candidate - (candidate % _uniqueVars);
@@ -222,11 +276,11 @@ namespace RealtimePlottingApp.ViewModels
                     // SignalXY Preconditions, which when met allows for greater performance than ScatterLine Plotting:
                     // "New data points must have an X value that is greater to or equal to the previous one."
                     SignalXY signal = LinePlot.Plot.Add.SignalXY(xVar, yVar);
-                    signal.LegendText = _plotConfigVariables.Count > v 
+                    signal.LegendText = _plotConfigVariables?.Count > v 
                         ? _plotConfigVariables[v].Name : $"Var {v+1}"; // Fallback
                     
                     // Do not plot the variable if visibility is unchecked UI
-                    if (_plotConfigVariables.Count > v && !_plotConfigVariables[v].IsChecked)
+                    if (_plotConfigVariables?.Count > v && !_plotConfigVariables[v].IsChecked)
                         signal.IsVisible = false;
                 }
         
@@ -271,6 +325,21 @@ namespace RealtimePlottingApp.ViewModels
                 }
             }
         }
+
+        private void OnCanDataReceived(object? sender, CanMessageReceivedEvent e)
+        {
+            if (_canIdFilter == e.CanId) // Filter by requested ID
+            {
+                List<uint> variables = ParseCanDataMask(_canDataPayloadMask, e.Data);
+                lock (_graphData)
+                {
+                    foreach (var value in variables)
+                    {
+                        _graphData.AddPoint(e.Timestamp, value);
+                    }
+                }
+            }
+        }
         
         // =============== Private Helper Methods =============== //
         private static bool ParseUartConfig(string message, out string comPort, out int baudRate, out UARTDataPayloadSize dataSize, out int uniqueVars)
@@ -300,6 +369,88 @@ namespace RealtimePlottingApp.ViewModels
             dataSize = default;
             return false;
         }
+        
+        private static bool ParseCanConfig(string message, out string canInterface, out string bitRate, out int canIdFilter, out string dataPayloadMask)
+        {
+            const string pattern = @"^ConnectCan:CanInterface:(?<canInterface>[^,]+),BitRate:(?<bitRate>[^,]+),CanIdFilter:(?<canIdFilter>\d+),DataPayloadMask:(?<dataPayloadMask>.+)$";
+            Match match = Regex.Match(message, pattern);
+
+            if (match.Success)
+            {
+                canInterface = match.Groups["canInterface"].Value;
+                bitRate = match.Groups["bitRate"].Value;
+                canIdFilter = int.Parse(match.Groups["canIdFilter"].Value);
+                dataPayloadMask = match.Groups["dataPayloadMask"].Value;
+                return true;
+            }
+
+            // No success, return defaults.
+            canInterface = string.Empty;
+            bitRate = string.Empty;
+            canIdFilter = 0;
+            dataPayloadMask = string.Empty;
+            return false;
+        }
+        
+        /// <summary>
+        /// Parses a CAN data payload mask to extract the variables from the 8-byte data array.
+        /// The mask is expected to be in the format "__:__:__:__:__:__:__:__", with each colon-seperated
+        /// group corresponds to the first and second half of a byte (imagine it as a hex-representation of the payload).
+        /// </summary>
+        /// <param name="mask">The mask string</param>
+        /// <param name="data">A byte-array of size 8 containing CAN data</param>
+        /// <returns>List representing the extracted variables as unsigned integers indexed by numerical order.</returns>
+        private static List<uint> ParseCanDataMask(string mask, byte[] data)
+        {
+            List<uint> variables = [];
+            
+            string[] groups = mask.Split(':');
+            if (groups.Length != 8)
+            {
+                Console.WriteLine("Invalid mask format. Expected 8 groups.");
+                // Return empty list
+                return variables;
+            }
+
+            // For each possible variable number 1..9 which exists in the mask:
+            for (int i = 1; mask.Contains(i.ToString()) && i <= 9; i++)
+            {
+                uint varI = 0;
+                bool variableUpdated = false;
+                // Look for number i in the mask, to construct variable i.
+                for (int j = 0; j < groups.Length; j++)
+                {
+                    // Variable not masked in this group(byte), check next.
+                    if (!groups[j].Contains(i.ToString())) continue;
+                    
+                    if (groups[j].Equals($"{i}{i}")) // Case: "ii"
+                    {
+                        // Shift left by 8 bits (full byte) and `|` with data to reconstruct that full byte of the data.
+                        varI = (varI << 8) | data[j];
+                        variableUpdated = true;
+                    }
+                    
+                    else if (groups[j].StartsWith($"{i}")) // Case: "i_", where _ is wildcard.
+                    {
+                        uint highHalf = (uint)(data[j] >> 4) & 0x0F; // Extract high half
+                        varI = (varI << 4) | highHalf; // Shift left by 4 bits and `|` with the half
+                        variableUpdated = true;
+                    }
+                    
+                    else if (groups[j].EndsWith($"{i}")) // Case "_i", where _ is wildcard.
+                    {
+                        uint lowHalf = (uint)data[j] & 0x0F; // Extract low half
+                        varI = (varI << 4) | lowHalf; // Shift left by 4 bits and `|` with the half
+                        variableUpdated = true;
+                    }
+                }
+                // Finished constructing data from mask.
+                if(variableUpdated)
+                    variables.Add(varI);
+            }
+
+            return variables;
+        }
 
         private void ResetDataChannels()
         {
@@ -308,7 +459,15 @@ namespace RealtimePlottingApp.ViewModels
             
             // Stop ISerialReader if it's on, and nullify.
             _serialReader?.StopSerial();
+            if(_serialReader != null)
+                _serialReader.TimestampedDataReceived -= OnUartDataReceived;
             _serialReader = null;
+            
+            // Stop ICanBus if it's on, and nullify.
+            _canBus?.Disconnect();
+            if (_canBus != null)
+                _canBus.MessageReceived -= OnCanDataReceived;
+            _canBus = null;
         }
         
         // =============== Handle graph visibility =============== //

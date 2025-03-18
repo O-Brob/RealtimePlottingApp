@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using SocketCANSharp;
 using System.Threading;
 using System.Net.Sockets;
@@ -41,6 +42,10 @@ namespace RealtimePlottingApp.Services.CAN
         
         // Preallocated pool of byte arrays
         private readonly ConcurrentQueue<byte[]?> _bufferPool = new ConcurrentQueue<byte[]?>();
+        
+        // Stopwatch for timestamping messages.
+        private readonly Stopwatch _stopwatch;
+        private const int msInterval = 10; // Invoked resolution of timestamps.
 
         public SocketCanBus()
         {
@@ -49,12 +54,18 @@ namespace RealtimePlottingApp.Services.CAN
             {
                 _bufferPool.Enqueue(new byte[MaxCanDataLength]);
             }
+            
+            _stopwatch = new Stopwatch();
         }
         
-        public bool Connect(string interfaceName)
+        public void Connect(string interfaceName, string? bitrate)
         {
             try
             {
+                if (bitrate != null)
+                {
+                    Console.WriteLine("Requested bitrate is discarded. Set bitrate via SocketCAN, and provide null instead.");
+                }
                 // Get the CanNetworkInterface by name
                 CanNetworkInterface canInterface = CanNetworkInterface
                     .GetAllInterfaces(true)
@@ -63,8 +74,7 @@ namespace RealtimePlottingApp.Services.CAN
                 // Ensure we found a valid interface
                 if (canInterface == null)
                 {
-                    Console.WriteLine($"CAN interface {interfaceName} not found.");
-                    return false;
+                    throw new Exception($"CAN interface {interfaceName} not found.");
                 }
 
                 // Initialize and bind the socket
@@ -73,6 +83,7 @@ namespace RealtimePlottingApp.Services.CAN
 
                 // Set the socket to a listening state, initialization is successful.
                 _running = true;
+                _stopwatch.Restart(); // Start a fresh timer.
 
                 // Start the receiving thread in the background to read messages
                 _receiveThread = new Thread(ReceiveMessages) { IsBackground = true };
@@ -81,19 +92,17 @@ namespace RealtimePlottingApp.Services.CAN
                 // Start a processing thread to handle messages from queue
                 _processThread = new Thread(ProcessMessages) { IsBackground = true};
                 _processThread.Start();
-                
-                Console.WriteLine($"Successfully connected to {interfaceName}.");
-                return true;
             }
             catch (SocketException e)
             {
-                Console.WriteLine($"SocketCAN Connection Error: {e.Message}");
-                return false;
+                throw new Exception($"SocketCAN Connection Error: {e.Message}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error: {ex.Message}");
-                return false;
+                // Rethrow most common "vague" exception message to be more informative.
+                if (ex.Message == "Sequence contains no matching element")
+                    throw new Exception("Could not find the provided CAN Interface");
+                throw new Exception($"Error: {ex.Message}");
             }
         }
 
@@ -111,7 +120,9 @@ namespace RealtimePlottingApp.Services.CAN
             {
                 _processThread.Join();
             }
+            _stopwatch.Reset(); // Stop & zero-set.
             _socket?.Close();
+            _socket = null;
         }
 
         public int SendMessage(uint canId, byte[] data)
@@ -183,8 +194,15 @@ namespace RealtimePlottingApp.Services.CAN
                     {
                         try
                         {
-                            MessageReceived?.Invoke(this, new CanMessageReceivedEvent
-                                (msg.canId, msg.buffer.Take(msg.length).ToArray()));
+                            // Calculate timestamp as integer value, and divide by msInterval
+                            // to get a specified resolution
+                            uint timestamp = (uint)(_stopwatch.ElapsedMilliseconds / msInterval);
+                            
+                            MessageReceived?.Invoke(this, new CanMessageReceivedEvent(
+                                msg.canId, 
+                                msg.buffer.Take(msg.length).ToArray(),
+                                timestamp)
+                            );
                         }
                         catch (Exception ex)
                         {
