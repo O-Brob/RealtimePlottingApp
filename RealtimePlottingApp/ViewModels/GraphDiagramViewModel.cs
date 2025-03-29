@@ -11,6 +11,7 @@ using RealtimePlottingApp.Models;
 using RealtimePlottingApp.Services;
 using RealtimePlottingApp.Services.CAN;
 using RealtimePlottingApp.Services.UART;
+using ScottPlot;
 using ScottPlot.Avalonia;
 using ScottPlot.Plottables;
 
@@ -36,11 +37,19 @@ namespace RealtimePlottingApp.ViewModels
         private string _canDataPayloadMask = String.Empty; // Variable mask for the data payload during CAN reading.
         private int _canIdFilter;
         private ObservableCollection<IVariableModel>? _plotConfigVariables;
+        private HorizontalLine? _upperTriggerLevel = null; // Holds upper trigger level when enabled, else null
+        private HorizontalLine? _lowerTriggerLevel = null; // Holds lower trigger level when enabled, else null
 
         // --- Plotting modes & restraints --- //
-        private const bool _enableDataGeneratorTesting = false;
+        private const bool _enableDataGeneratorTesting = true;
         private bool _plotFullHistory; // false default
         private double WindowWidth = 75;
+        
+        // Palette for predictable & consistent color assignment regardless of Trigger lines, etc.
+        // Uses a 25-color palette adapted from Tsitsulin's 12-color xgfs palette
+        // Aims to help distinguishing the colors for people with color vision deficiency and when printed B&W.
+        // https://tsitsul.in/blog/coloropt/
+        private readonly IPalette _palette = new ScottPlot.Palettes.Tsitsulin();
 
         // =============== Constructor =============== //
         public GraphDiagramViewModel()
@@ -213,6 +222,16 @@ namespace RealtimePlottingApp.ViewModels
                     }
                 });
             
+            // Receive Upper and Lower Trigger level enable/disable commands.
+            MessageBus.Current.Listen<bool>("upperTrig").Subscribe(upperTrigEnabled =>
+            {
+                SetTriggerLevel(ref _upperTriggerLevel, true, 10, "Up. Trig", upperTrigEnabled);
+            });
+            MessageBus.Current.Listen<bool>("lowerTrig").Subscribe(lowerTrigEnabled =>
+            {
+                SetTriggerLevel(ref _lowerTriggerLevel, false, 10, "Lo. Trig", lowerTrigEnabled);
+            });
+            
             // Enable data generator for testing:
             if (_enableDataGeneratorTesting) // Enable data generator
             {
@@ -262,8 +281,8 @@ namespace RealtimePlottingApp.ViewModels
                 if (LinePlot == null)
                     return;
                 
-                LinePlot.Plot.Clear();
-        
+                LinePlot.Plot.Clear<SignalXY>();
+                
                 // Loop over each variable and extract its data.
                 for (int v = 0; v < _uniqueVars; v++)
                 {
@@ -278,6 +297,7 @@ namespace RealtimePlottingApp.ViewModels
                     SignalXY signal = LinePlot.Plot.Add.SignalXY(xVar, yVar);
                     signal.LegendText = _plotConfigVariables?.Count > v 
                         ? _plotConfigVariables[v].Name : $"Var {v+1}"; // Fallback
+                    signal.Color = _palette.GetColor(v % _palette.Colors.Length); // Each var nr. has a preset color.
                     
                     // Do not plot the variable if visibility is unchecked UI
                     if (_plotConfigVariables?.Count > v && !_plotConfigVariables[v].IsChecked)
@@ -311,6 +331,65 @@ namespace RealtimePlottingApp.ViewModels
         {
             _plotFullHistory = true;
             UpdatePlot(null, null); // Plot the full history one last time before stopping updates
+        }
+        
+        // Manage the trigger levels
+        private void SetTriggerLevel(ref HorizontalLine? triggerLevel, bool placeTriggerAbove, 
+            double offset, string startText, bool isEnabled)
+        {
+            // If _graphData.YData is empty, we set the trigger level to a default value
+            // otherwise we place it depending on the max & minimum values, to reduce
+            // risk of accidental "instant trigger"
+            double triggerPosition;
+
+            if (_graphData.YData.Count == 0)
+            {
+                // Place it at 10 if placing above or at -10 if placing below
+                triggerPosition = placeTriggerAbove ? 10 : -10;
+            }
+            else
+            {
+                // Calculate the trigger level position based on the input parameters
+                if (placeTriggerAbove)
+                {
+                    // Set the trigger level slightly above the maximum Y value in the data
+                    triggerPosition = _graphData.YData.Max() + offset;
+                }
+                else
+                {
+                    // Set the trigger level slightly below the minimum Y value in the data
+                    triggerPosition = _graphData.YData.Min() - offset;
+                }
+            }
+
+            // Set the trigger level only if it's enabled
+            if (isEnabled)
+            {
+                // Add the horizontal line if it's enabled and doesn't already exist
+                if (triggerLevel == null)
+                {
+                    triggerLevel = LinePlot?.Plot.Add.HorizontalLine(triggerPosition);
+                    if (triggerLevel != null)
+                    {
+                        triggerLevel.IsDraggable = true;
+                        triggerLevel.IsVisible = true;
+                        triggerLevel.Text = startText;
+                        triggerLevel.LinePattern = LinePattern.Dashed;
+                    }
+                }
+            }
+            else
+            {
+                // Remove the horizontal line if it's disabled and it exists
+                if (triggerLevel != null)
+                {
+                    LinePlot?.Plot.Remove(triggerLevel);
+                    triggerLevel = null; // Indicate that the triggerLevel does not exist anymore.
+                }
+            }
+
+            // Refresh the plot to reflect the changes
+            LinePlot?.Refresh();
         }
         
         //================ Data receive handlers =============== //

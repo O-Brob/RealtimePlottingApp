@@ -271,7 +271,7 @@
             <TabItem Header="Plot Config"
                      FontSize="12"
                      FontWeight="SemiBold">
-                <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, *">
+                <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, *">
                     
                     <!-- X-Axis Variable Range Selector -->
                     <Label FontFamily="Segoe UI" 
@@ -323,16 +323,50 @@
                             TickFrequency="10">
                     </Slider>
                     
-                    <!-- Listing of all available variables -->
+                    <!-- Trigger Levlel toggles -->
                     <Label FontFamily="Segoe UI" 
                            Grid.Row="6" 
                            HorizontalAlignment="Center" 
                            FontWeight="SemiBold">
                         
+                        Trigger Levels:
+                    </Label>
+                    
+                    <Grid Grid.Row="7"
+                          RowDefinitions="*,*" 
+                          ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Row="0" 
+                                   Grid.Column="0"
+                                   VerticalAlignment="Center">
+                            Upper Level
+                        </TextBlock>
+                        
+                        <CheckBox Grid.Row="0" 
+                                  Grid.Column="1"
+                                  IsChecked="{Binding UpperTrigChecked}"></CheckBox>
+                        
+                        <TextBlock Grid.Row="1" 
+                                   Grid.Column="0"
+                                   VerticalAlignment="Center">
+                            Lower Level
+                        </TextBlock>
+                        
+                        <CheckBox Grid.Row="1" 
+                                  Grid.Column="1"
+                                  IsChecked="{Binding LowerTrigChecked}"></CheckBox>
+                    </Grid>
+                    
+                    <!-- Listing of all available variables -->
+                    <Label FontFamily="Segoe UI" 
+                           Grid.Row="8" 
+                           HorizontalAlignment="Center" 
+                           FontWeight="SemiBold"
+                           Margin="0,10,0,0">
+                        
                         Plotted Variables:
                     </Label>
                     
-                    <ScrollViewer Grid.Row="7"
+                    <ScrollViewer Grid.Row="9"
                                   Margin="5,10,5,15">
                         <ItemsControl ItemsSource="{Binding Variables}">
                             <ItemsControl.ItemTemplate>

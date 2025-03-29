@@ -89,6 +89,32 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
 
+        // Upper Trigger Level enable checkbox
+        private bool _upperTrigChecked; // false default
+
+        public bool UpperTrigChecked
+        {
+            get => _upperTrigChecked;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _upperTrigChecked, value);
+                MessageBus.Current.SendMessage(_upperTrigChecked, "upperTrig");
+            }
+        }
+
+        // Lower Trigger Level enable checkbox
+        private bool _lowerTrigChecked; // false default
+
+        public bool LowerTrigChecked
+        {
+            get => _lowerTrigChecked;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _lowerTrigChecked, value);
+                MessageBus.Current.SendMessage(_lowerTrigChecked, "lowerTrig");
+            }
+        }
+
         // ========== CAN Data Bindings ========== //
         // CAN-Interface Input
         private string? _canInterfaceInput = "";
