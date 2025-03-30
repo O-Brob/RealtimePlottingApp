@@ -224,7 +224,7 @@ namespace RealtimePlottingApp.ViewModels
                     }
                 });
             
-            // Receive Upper and Lower Trigger level enable/disable commands.
+            // Receive Trigger level enable/disable commands.
             MessageBus.Current.Listen<bool>("TrigChecked").Subscribe(trigEnabled =>
             {
                 _triggerStartIndex = _graphData.XData.Count; // Only look for trigger occurances from here on forward.
@@ -268,7 +268,7 @@ namespace RealtimePlottingApp.ViewModels
             if (triggerIndex >= 0)
             {
                 // Trigger has occured, handle it accordingly.
-                HandleTrigger(triggerIndex);
+                HandleTrigger();
             }
 
             // Update the graph's UI in regards to the extracted data and trigger index.
@@ -313,7 +313,7 @@ namespace RealtimePlottingApp.ViewModels
             return -1;
         }
         
-        private void HandleTrigger(int triggerIndex)
+        private void HandleTrigger()
         {
             new Thread(() =>
             {
@@ -455,15 +455,18 @@ namespace RealtimePlottingApp.ViewModels
             else
             {
                 // Calculate the trigger level position based on the input parameters
-                if (placeTriggerAbove)
+                lock(_graphData)
                 {
-                    // Set the trigger level slightly above the maximum Y value in the data
-                    triggerPosition = _graphData.YData.Max() + offset;
-                }
-                else
-                {
-                    // Set the trigger level slightly below the minimum Y value in the data
-                    triggerPosition = _graphData.YData.Min() - offset;
+                    if (placeTriggerAbove)
+                    {
+                        // Set the trigger level slightly above the maximum Y value in the data
+                        triggerPosition = _graphData.YData.Max() + offset;
+                    }
+                    else
+                    {
+                        // Set the trigger level slightly below the minimum Y value in the data
+                        triggerPosition = _graphData.YData.Min() - offset;
+                    }
                 }
             }
 

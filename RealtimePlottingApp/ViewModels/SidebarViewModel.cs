@@ -89,7 +89,7 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
 
-        // Upper Trigger Level enable checkbox
+        // Trigger Level enable checkbox
         private bool _trigChecked; // false default
 
         public bool TrigChecked
