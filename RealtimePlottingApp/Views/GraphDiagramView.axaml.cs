@@ -2,6 +2,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using ReactiveUI;
 using RealtimePlottingApp.ViewModels;
 using ScottPlot.Avalonia;
 using ScottPlot;
@@ -99,6 +100,9 @@ public partial class GraphDiagramView : UserControl
                     vl.Text = $"{vl.X:0.00}";
                     break;
             }
+            
+            // If anyone wants to know if the trigger is manually moved, this contract can be subscribed to.
+            MessageBus.Current.SendMessage(_draggedTriggerLevel,"TriggerDragged");
 
             LinePlot.Refresh();
         }

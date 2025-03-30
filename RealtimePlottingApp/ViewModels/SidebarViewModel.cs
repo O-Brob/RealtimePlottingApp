@@ -90,28 +90,15 @@ namespace RealtimePlottingApp.ViewModels
         }
 
         // Upper Trigger Level enable checkbox
-        private bool _upperTrigChecked; // false default
+        private bool _trigChecked; // false default
 
-        public bool UpperTrigChecked
+        public bool TrigChecked
         {
-            get => _upperTrigChecked;
+            get => _trigChecked;
             set
             {
-                this.RaiseAndSetIfChanged(ref _upperTrigChecked, value);
-                MessageBus.Current.SendMessage(_upperTrigChecked, "upperTrig");
-            }
-        }
-
-        // Lower Trigger Level enable checkbox
-        private bool _lowerTrigChecked; // false default
-
-        public bool LowerTrigChecked
-        {
-            get => _lowerTrigChecked;
-            set
-            {
-                this.RaiseAndSetIfChanged(ref _lowerTrigChecked, value);
-                MessageBus.Current.SendMessage(_lowerTrigChecked, "lowerTrig");
+                this.RaiseAndSetIfChanged(ref _trigChecked, value);
+                MessageBus.Current.SendMessage(_trigChecked, "TrigChecked");
             }
         }
 

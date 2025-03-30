@@ -323,37 +323,27 @@
                             TickFrequency="10">
                     </Slider>
                     
-                    <!-- Trigger Levlel toggles -->
+                    <!-- Trigger Level Config -->
                     <Label FontFamily="Segoe UI" 
                            Grid.Row="6" 
                            HorizontalAlignment="Center" 
                            FontWeight="SemiBold">
                         
-                        Trigger Levels:
+                        Trigger Mode:
                     </Label>
                     
                     <Grid Grid.Row="7"
-                          RowDefinitions="*,*" 
+                          RowDefinitions="*" 
                           ColumnDefinitions="*,Auto">
                         <TextBlock Grid.Row="0" 
                                    Grid.Column="0"
                                    VerticalAlignment="Center">
-                            Upper Level
+                            Enable Trigger
                         </TextBlock>
                         
                         <CheckBox Grid.Row="0" 
                                   Grid.Column="1"
-                                  IsChecked="{Binding UpperTrigChecked}"></CheckBox>
-                        
-                        <TextBlock Grid.Row="1" 
-                                   Grid.Column="0"
-                                   VerticalAlignment="Center">
-                            Lower Level
-                        </TextBlock>
-                        
-                        <CheckBox Grid.Row="1" 
-                                  Grid.Column="1"
-                                  IsChecked="{Binding LowerTrigChecked}"></CheckBox>
+                                  IsChecked="{Binding TrigChecked}"></CheckBox>
                     </Grid>
                     
                     <!-- Listing of all available variables -->
