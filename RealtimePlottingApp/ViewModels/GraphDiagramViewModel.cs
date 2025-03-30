@@ -39,13 +39,13 @@ namespace RealtimePlottingApp.ViewModels
         private string _canDataPayloadMask = String.Empty; // Variable mask for the data payload during CAN reading.
         private int _canIdFilter;
         private ObservableCollection<IVariableModel>? _plotConfigVariables;
-        private HorizontalLine? _triggerLevel = null; // Holds trigger level when enabled, else null
+        private HorizontalLine? _triggerLevel; // Holds trigger level when enabled, else null
 
         // --- Plotting modes & restraints --- //
         private const bool _enableDataGeneratorTesting = true;
         private bool _plotFullHistory; // false default
         private double WindowWidth = 75;
-        private int? _triggerStartIndex = null; // Represents the max index of when the trigger was *enabled!* (not triggered)
+        private int? _triggerStartIndex; // Represents the max index of when the trigger was *enabled!* (not triggered)
         
         // Palette for predictable & consistent color assignment regardless of Trigger lines, etc.
         // Uses a 25-color palette adapted from Tsitsulin's 12-color xgfs palette
@@ -232,7 +232,7 @@ namespace RealtimePlottingApp.ViewModels
             });
             
             // Receive notice whenever trigger level is moved manually by mouse dragging.
-            MessageBus.Current.Listen<AxisLine>("TriggerDragged").Subscribe(unused =>
+            MessageBus.Current.Listen<AxisLine>("TriggerDragged").Subscribe(_ =>
             {
                 if (_triggerStartIndex == _graphData.XData.Count) return; // No need to write value
                 // If we move the trigger point via mouse dragging,
@@ -261,124 +261,27 @@ namespace RealtimePlottingApp.ViewModels
 
         private void UpdatePlot(object? sender, ElapsedEventArgs? e)
         {
-            double[] xDataDouble, yDataDouble;
-            int triggerIndex;
+            // Extract graph data, such as which data to plot,
+            // and a trigger index indicating whether trigger has occured.
+            ExtractGraphData(out double[] xDataDouble, out double[] yDataDouble, out int triggerIndex);
 
-            // Lock the graph data while reading it to ensure consistency
-            lock (_graphData)
+            if (triggerIndex >= 0)
             {
-                int totalPoints = _graphData.XData.Count;
-                // Plot last `WindowWidth` points. Performance seems good  up to the tens of thousands,
-                // and trying to fit more on screen during plotting is unreasonable.
-                int candidate = (!_plotFullHistory && totalPoints > (int)WindowWidth * _uniqueVars) ? totalPoints - (int)WindowWidth * _uniqueVars : 0;
-                
-                // Check whether trigger point has been reached
-                triggerIndex = CheckForTrigger();
-                
-                // Check if trigger occured and if there's enough points to display it with 50% pre-trigger
-                if (triggerIndex >= 0)
-                {
-                    candidate = 0; // Start plotting entire history
-                    // Stop UI timer after a few more points are drawn, trigger has been reached.
-                    new Thread(() =>
-                    {
-                        Thread.Sleep(2000);
-                        _timer.Stop(); // Stop Graph UI updates
-                        if(_serialReader != null)
-                            MessageBus.Current.SendMessage("UARTDisconnected");
-                        else if(_canBus != null)
-                            MessageBus.Current.SendMessage("CANDisconnected");
-                        ResetDataChannels();
-                    }).Start();
-                }
-                
-                // Ensures sub-array will start at a position that aligns with the interleaved data structure
-                int startIndex = candidate - (candidate % _uniqueVars);
-                xDataDouble = _graphData.XData
-                    .Skip(startIndex)
-                    .Select(val => (double)val)
-                    .ToArray();
-                yDataDouble = _graphData.YData
-                    .Skip(startIndex)
-                    .Select(val => (double)val)
-                    .ToArray();
+                // Trigger has occured, handle it accordingly.
+                HandleTrigger(triggerIndex);
             }
 
-            // Update UI asynchronously on Avalonia's UI Thread
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (LinePlot == null)
-                    return;
-                
-                LinePlot.Plot.Clear<SignalXY>();
-                LinePlot.Plot.Clear<Scatter>();
-                
-                // Loop over each variable and extract its data.
-                for (int v = 0; v < _uniqueVars; v++)
-                {
-                    // Use LINQ's index-aware overload of the Where method to filter data by % operations on index.
-                    double[] xVar = xDataDouble.Where((_, idx) => idx % _uniqueVars == v).ToArray();
-                    double[] yVar = yDataDouble.Where((_, idx) => idx % _uniqueVars == v).ToArray();
-
-                    if (xVar.Length <= 0) continue;
-                    
-                    // SignalXY Preconditions, which when met allows for greater performance than ScatterLine Plotting:
-                    // "New data points must have an X value that is greater to or equal to the previous one."
-                    SignalXY signal = LinePlot.Plot.Add.SignalXY(xVar, yVar);
-                    signal.LegendText = _plotConfigVariables?.Count > v 
-                        ? _plotConfigVariables[v].Name : $"Var {v+1}"; // Fallback
-                    signal.Color = _palette.GetColor(v % _palette.Colors.Length); // Each var nr. has a preset color.
-                    
-                    // Do not plot the variable if visibility is unchecked UI
-                    if (_plotConfigVariables?.Count > v && !_plotConfigVariables[v].IsChecked)
-                        signal.IsVisible = false;
-                    
-                    // If a triggerIndex is plotted, highlight it.
-                    if (triggerIndex >= 0 && triggerIndex < xVar.Length)
-                    {
-                        double triggerX = xVar[triggerIndex];
-                        double triggerY = yVar[triggerIndex];
-
-                        // Add the marker at the trigger point
-                        var marker = LinePlot.Plot.Add.Scatter(triggerX, triggerY, 
-                            color: Colors.Black);
-                        marker.MarkerShape = MarkerShape.FilledDiamond;
-                        marker.MarkerSize = 5;
-                    }
-                }
-        
-                if (!_plotFullHistory && xDataDouble.Length > 0)
-                {
-                    if (triggerIndex >= 0 && triggerIndex < xDataDouble.Length)
-                    {
-                        // Center the plot around trigger point
-                        double triggerX = xDataDouble[triggerIndex];
-                        LinePlot.Plot.Axes.SetLimitsX(triggerX - WindowWidth / 2, triggerX + WindowWidth / 2);
-                    }
-                    else
-                    {
-                        // Make X-Axis limit & "follow" the plotting while not in "history mode"
-                        double lastX = xDataDouble.Last();
-                        LinePlot.Plot.Axes.SetLimitsX(lastX - WindowWidth, lastX);   
-                    }
-                }
-                else
-                {
-                    LinePlot.Plot.Axes.AutoScale();
-                }
-        
-                // Add legend so each variable is identifiable.
-                LinePlot.Plot.ShowLegend();
-                LinePlot.Refresh();
-            });
-
-            // Stop further updates if full-history mode is active.
+            // Update the graph's UI in regards to the extracted data and trigger index.
+            UpdateGraphUI(xDataDouble, yDataDouble, triggerIndex);
+    
+            // Manual disconnect, disable UI updates (timer calls of this method).
             if (_plotFullHistory)
             {
                 _timer.Stop();
             }
         }
 
+        // =============== Graph Update Helpers =============== //
         private void EnableFullHistory()
         {
             _plotFullHistory = true;
@@ -408,6 +311,131 @@ namespace RealtimePlottingApp.ViewModels
 
             // Return -1 if no trigger is found
             return -1;
+        }
+        
+        private void HandleTrigger(int triggerIndex)
+        {
+            new Thread(() =>
+            {
+                Thread.Sleep(2000);
+                _timer.Stop(); // Stop Graph UI updates
+                if (_serialReader != null)
+                    MessageBus.Current.SendMessage("UARTDisconnected");
+                else if (_canBus != null)
+                    MessageBus.Current.SendMessage("CANDisconnected");
+                ResetDataChannels();
+            }).Start();
+        }
+        
+        private void ExtractGraphData(out double[] xDataDouble, out double[] yDataDouble, out int triggerIndex)
+        {
+            // Lock the graph data while reading it to ensure consistency
+            lock(_graphData)
+            { 
+                int totalPoints = _graphData.XData.Count;
+                // Plot last `WindowWidth` points. Performance seems good  up to the tens of thousands,
+                // and trying to fit more on screen during plotting is unreasonable.
+                int candidate = (!_plotFullHistory && totalPoints > (int)WindowWidth * _uniqueVars)
+                    ? totalPoints - (int)WindowWidth * _uniqueVars
+                    : 0;
+                
+                // Check whether trigger point has been reached.
+                // If it has, set candidate to 0 such that all historical points are included. 
+                triggerIndex = CheckForTrigger();
+                if (triggerIndex >= 0)
+                {
+                    candidate = 0;
+                }
+
+                // Ensures sub-array will start at a position that aligns with the interleaved data structure
+                int startIndex = candidate - (candidate % _uniqueVars);
+                
+                xDataDouble = _graphData.XData
+                    .Skip(startIndex)
+                    .Select(val => (double)val)
+                    .ToArray();
+                
+                yDataDouble = _graphData.YData
+                    .Skip(startIndex)
+                    .Select(val => (double)val)
+                    .ToArray();
+            }
+        }
+
+        private void UpdateGraphUI(double[] xDataDouble, double[] yDataDouble, int triggerIndex)
+        {
+            // Update UI asynchronously on Avalonia's UI Thread
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (LinePlot == null) return;
+
+                LinePlot.Plot.Clear<SignalXY>();
+                LinePlot.Plot.Clear<Scatter>();
+
+                // Loop over each variable and extract its data.
+                for (int v = 0; v < _uniqueVars; v++)
+                {
+                    // Use LINQ's index-aware overload of the Where method to filter data by % operations on index.
+                    double[] xVar = xDataDouble.Where((_, idx) => idx % _uniqueVars == v).ToArray();
+                    double[] yVar = yDataDouble.Where((_, idx) => idx % _uniqueVars == v).ToArray();
+
+                    if (xVar.Length <= 0) continue;
+
+                    // SignalXY Preconditions, which when met allows for greater performance than ScatterLine Plotting:
+                    // "New data points must have an X value that is greater to or equal to the previous one."
+                    SignalXY signal = LinePlot.Plot.Add.SignalXY(xVar, yVar);
+                    signal.LegendText = _plotConfigVariables?.Count > v 
+                        ? _plotConfigVariables[v].Name : $"Var {v+1}"; // Fallback
+                    signal.Color = _palette.GetColor(v % _palette.Colors.Length); // Each var nr. has a preset color.
+
+                    // Do not plot the variable if visibility is unchecked by the user in the UI
+                    if (_plotConfigVariables?.Count > v && !_plotConfigVariables[v].IsChecked)
+                        signal.IsVisible = false;
+
+                    // If a triggerIndex is plotted, mark it such that the user can see which point triggered.
+                    if (triggerIndex >= 0 && triggerIndex < xVar.Length)
+                    {
+                        double triggerX = xVar[triggerIndex];
+                        double triggerY = yVar[triggerIndex];
+
+                        // Add the marker at the trigger point
+                        var marker = LinePlot.Plot.Add.Scatter(triggerX, triggerY, color: Colors.Black);
+                        marker.MarkerShape = MarkerShape.FilledDiamond;
+                        marker.MarkerSize = 5;
+                    }
+                }
+
+                // Call helper to adjust the graph view for the new data (or trigger points)
+                AdjustGraphView(xDataDouble, triggerIndex);
+
+                // Add legend so each variable is identifiable.
+                LinePlot.Plot.ShowLegend();
+                LinePlot.Refresh();
+            });
+        }
+        
+        private void AdjustGraphView(double[] xDataDouble, int triggerIndex)
+        {
+            if (!_plotFullHistory && xDataDouble.Length > 0)
+            {
+                if (triggerIndex >= 0 && triggerIndex < xDataDouble.Length)
+                {
+                    // Center the plot around trigger point
+                    double triggerX = xDataDouble[triggerIndex];
+                    LinePlot?.Plot.Axes.SetLimitsX(triggerX - WindowWidth / 2, triggerX + WindowWidth / 2);
+                }
+                else
+                {
+                    // Make X-Axis limit & "follow" the plotting while not in "history mode"
+                    double lastX = xDataDouble.Last();
+                    LinePlot?.Plot.Axes.SetLimitsX(lastX - WindowWidth, lastX);
+                }
+            }
+            else
+            {
+                // History mode entered, don't set limits and autoscale the plot.
+                LinePlot?.Plot.Axes.AutoScale();
+            }
         }
         
         // Manage the trigger levels
@@ -497,7 +525,7 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
         
-        // =============== Private Helper Methods =============== //
+        // =============== Data Channel Helper Methods =============== //
         private static bool ParseUartConfig(string message, out string comPort, out int baudRate, out UARTDataPayloadSize dataSize, out int uniqueVars)
         {
             const string pattern = @"^ConnectUart:ComPort:(?<comPort>[^,]+),BaudRate:(?<baudRate>\d+),DataSize:(?<dataSize>\d+ bits),UniqueVars:(?<uniqueVars>\d+)$";
