@@ -1,6 +1,7 @@
 ﻿using System;
+using RealtimePlottingApp.Models;
 
-namespace RealtimePlottingApp.Models;
+namespace RealtimePlottingApp.Events;
 
 /// <summary>
 /// Event arguments that hold an array of timestamped data packages.

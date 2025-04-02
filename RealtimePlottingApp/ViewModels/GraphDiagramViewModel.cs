@@ -8,6 +8,7 @@ using System.Timers;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using ReactiveUI;
+using RealtimePlottingApp.Events;
 using RealtimePlottingApp.Models;
 using RealtimePlottingApp.Services;
 using RealtimePlottingApp.Services.CAN;
