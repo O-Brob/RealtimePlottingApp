@@ -409,7 +409,7 @@ namespace RealtimePlottingApp.ViewModels
                         double xBefore = xVar[triggerIndex - 1];
                         double yBefore = yVar[triggerIndex - 1];
                         
-                        if (_triggerLevel != null && (triggerX - xBefore) != 0)
+                        if (_triggerLevel != null && _triggerLevel.Y > yBefore && (triggerX - xBefore) != 0)
                         {
                             // Find intersection of triggerLevel and the line between trigger point and prev. point.
                             double slope = (triggerY - yBefore) / (triggerX - xBefore);
