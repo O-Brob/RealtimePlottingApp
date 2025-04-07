@@ -47,6 +47,7 @@ namespace RealtimePlottingApp.ViewModels
         private bool _plotFullHistory; // false default
         private double WindowWidth = 75;
         private int? _triggerStartIndex; // Represents the max index of when the trigger was *enabled!* (not triggered)
+        private bool _plotTriggerView; // true when trigger has occured. Used to prevent changing _triggerStartIndex
         
         // Palette for predictable & consistent color assignment regardless of Trigger lines, etc.
         // Uses a 25-color palette adapted from Tsitsulin's 12-color xgfs palette
@@ -82,6 +83,7 @@ namespace RealtimePlottingApp.ViewModels
                             _serialReader.TimestampedDataReceived += OnUartDataReceived;
                             _serialReader.StartSerial(comPort, baudRate, dataSize);
                             _plotFullHistory = false; // Allow progressive plotting.
+                            _plotTriggerView = false; // Reset trigger view.
                             _timer.Start(); // Start UI updates
                             MessageBus.Current.SendMessage("UARTConnected"); // Indicate success
                         }
@@ -132,6 +134,7 @@ namespace RealtimePlottingApp.ViewModels
                                 _canBus.Connect(canInterface, null);
                             
                             _plotFullHistory = false; // Allow progressive plotting.
+                            _plotTriggerView = false; // Reset trigger view.
                             _timer.Start(); // Start UI updates
                             MessageBus.Current.SendMessage("CANConnected"); // Indicate success
                         }
@@ -214,7 +217,7 @@ namespace RealtimePlottingApp.ViewModels
                     // Define local function to handle property changes.
                     void Variable_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
                     {
-                        if (_plotFullHistory &&
+                        if ((_plotFullHistory || _plotTriggerView) &&
                             e.PropertyName == nameof(IVariableModel.IsChecked) || 
                             e.PropertyName == nameof(IVariableModel.Name))
                         {
@@ -235,7 +238,8 @@ namespace RealtimePlottingApp.ViewModels
             // Receive notice whenever trigger level is moved manually by mouse dragging.
             MessageBus.Current.Listen<AxisLine>("TriggerDragged").Subscribe(_ =>
             {
-                if (_triggerStartIndex == _graphData.XData.Count) return; // No need to write value
+                if ((_triggerStartIndex == _graphData.XData.Count) || _plotTriggerView)
+                    return; // No need to write value. Graph hasn't changed, or triggerview has already been enabled.
                 // If we move the trigger point via mouse dragging,
                 // we don't want values from when we enabled it to casuse it to trigger.
                 _triggerStartIndex = _graphData.XData.Count;
@@ -324,6 +328,7 @@ namespace RealtimePlottingApp.ViewModels
                     MessageBus.Current.SendMessage("UARTDisconnected");
                 else if (_canBus != null)
                     MessageBus.Current.SendMessage("CANDisconnected");
+                _plotTriggerView = true;
                 ResetDataChannels();
             }).Start();
         }
@@ -396,13 +401,32 @@ namespace RealtimePlottingApp.ViewModels
                     // If a triggerIndex is plotted, mark it such that the user can see which point triggered.
                     if (triggerIndex >= 0 && triggerIndex < xVar.Length)
                     {
+                        // Triggered point
                         double triggerX = xVar[triggerIndex];
                         double triggerY = yVar[triggerIndex];
 
-                        // Add the marker at the trigger point
-                        var marker = LinePlot.Plot.Add.Scatter(triggerX, triggerY, color: Colors.Black);
-                        marker.MarkerShape = MarkerShape.FilledDiamond;
-                        marker.MarkerSize = 5;
+                        // Point before trigger (for calculating (x,y) interpolations)
+                        double xBefore = xVar[triggerIndex - 1];
+                        double yBefore = yVar[triggerIndex - 1];
+                        
+                        if (_triggerLevel != null && (triggerX - xBefore) != 0)
+                        {
+                            // Find intersection of triggerLevel and the line between trigger point and prev. point.
+                            double slope = (triggerY - yBefore) / (triggerX - xBefore);
+                            double intersectionX = triggerX + (_triggerLevel.Y - triggerY) / slope;
+                            // Place trigger point marker on the rising edge where the triggerLevel was passed
+                            // for better visual representation.
+                            var marker = LinePlot.Plot.Add.Scatter(intersectionX, _triggerLevel.Y, Colors.Black);
+                            marker.MarkerShape = MarkerShape.FilledDiamond;
+                            marker.MarkerSize = 6;
+                        }
+                        else // Fallback
+                        {
+                            // Add the marker at the trigger point
+                            var marker = LinePlot.Plot.Add.Scatter(triggerX, triggerY, color: Colors.Black);
+                            marker.MarkerShape = MarkerShape.FilledDiamond;
+                            marker.MarkerSize = 6;
+                        }
                     }
                 }
 
