@@ -351,12 +351,15 @@
                         <TextBlock Grid.Row="0" 
                                    Grid.Column="0"
                                    VerticalAlignment="Center">
-                            Enable Trigger (Rising Edge)
+                            Enable Trigger
                         </TextBlock>
                         
                         <CheckBox Grid.Row="0" 
                                   Grid.Column="1"
                                   IsChecked="{Binding TrigChecked}"></CheckBox>
+                        <ToolTip.Tip>
+                            Enable Trigger on Rising Edge
+                        </ToolTip.Tip>
                     </Grid>
                     
                     <!-- Listing of all available variables -->
