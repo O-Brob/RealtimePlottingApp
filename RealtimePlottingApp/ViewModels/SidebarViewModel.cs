@@ -101,7 +101,22 @@ namespace RealtimePlottingApp.ViewModels
                 MessageBus.Current.SendMessage(_trigChecked, "TrigChecked");
             }
         }
+        
+        // Trigger Mode combobox dropdown
+        private ComboBoxItem? _selectedTriggerMode;
 
+        public ComboBoxItem? SelectedTriggerMode
+        {
+            get => _selectedTriggerMode;
+            set
+            {
+                // Update the value and send the new trigger mode on the bus as a string.
+                this.RaiseAndSetIfChanged(ref _selectedTriggerMode, value);
+                MessageBus.Current.SendMessage(_selectedTriggerMode?.Content?.ToString(),
+                    "SelectedTriggerMode");
+            }
+        }
+        
         // ========== CAN Data Bindings ========== //
         // CAN-Interface Input
         private string? _canInterfaceInput = "";

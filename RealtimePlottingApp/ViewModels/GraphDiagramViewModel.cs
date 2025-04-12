@@ -41,12 +41,14 @@ namespace RealtimePlottingApp.ViewModels
         private int _canIdFilter;
         private ObservableCollection<IVariableModel>? _plotConfigVariables;
         private HorizontalLine? _triggerLevel; // Holds trigger level when enabled, else null
+        private string _triggerMode = "Single Trigger"; // Holds the selected trigger mode as a string.
 
         // --- Plotting modes & restraints --- //
         private const bool _enableDataGeneratorTesting = true;
         private bool _plotFullHistory; // false default
         private double WindowWidth = 75;
-        private int? _triggerStartIndex; // Represents the max index of when the trigger was *enabled!* (not triggered)
+        private int _triggerStartIndex; // Represents the start index of when the trigger was *enabled!* (not triggered)
+        private int _lastTriggerIndex = -1; // index of most recent trigger
         private bool _plotTriggerView; // true when trigger has occured. Used to prevent changing _triggerStartIndex
         
         // Palette for predictable & consistent color assignment regardless of Trigger lines, etc.
@@ -78,12 +80,12 @@ namespace RealtimePlottingApp.ViewModels
                         try
                         {
                             ResetDataChannels(); // Ensure no channel exists for any medium
+                            ResetTrigger();
                             _graphData.Clear(); // Clear graph data to plot new connection's data
                             _serialReader = new UARTSerialReader();
                             _serialReader.TimestampedDataReceived += OnUartDataReceived;
                             _serialReader.StartSerial(comPort, baudRate, dataSize);
                             _plotFullHistory = false; // Allow progressive plotting.
-                            _plotTriggerView = false; // Reset trigger view.
                             _timer.Start(); // Start UI updates
                             MessageBus.Current.SendMessage("UARTConnected"); // Indicate success
                         }
@@ -119,6 +121,7 @@ namespace RealtimePlottingApp.ViewModels
                         try
                         {
                             ResetDataChannels(); // Ensure no channel exists for any medium
+                            ResetTrigger();
                             _graphData.Clear(); // Clear graph data to plot new connection's data
                             _canBus = ControllerAreaNetwork.Create();
                             _canBus.MessageReceived += OnCanDataReceived;
@@ -134,7 +137,6 @@ namespace RealtimePlottingApp.ViewModels
                                 _canBus.Connect(canInterface, null);
                             
                             _plotFullHistory = false; // Allow progressive plotting.
-                            _plotTriggerView = false; // Reset trigger view.
                             _timer.Start(); // Start UI updates
                             MessageBus.Current.SendMessage("CANConnected"); // Indicate success
                         }
@@ -245,6 +247,12 @@ namespace RealtimePlottingApp.ViewModels
                 _triggerStartIndex = _graphData.XData.Count;
             });
             
+            // Receive notice whenever trigger mode has been updated:
+            MessageBus.Current.Listen<string>("SelectedTriggerMode").Subscribe(newMode =>
+            {
+                _triggerMode = newMode;
+            });
+            
             // Enable data generator for testing:
             if (_enableDataGeneratorTesting) // Enable data generator
             {
@@ -276,8 +284,8 @@ namespace RealtimePlottingApp.ViewModels
                 HandleTrigger();
             }
 
-            // Update the graph's UI in regards to the extracted data and trigger index.
-            UpdateGraphUI(xDataDouble, yDataDouble, triggerIndex);
+            // Update the graph's UI in regards to the extracted data and trigger indexes.
+            UpdateGraphUI(xDataDouble, yDataDouble, triggerIndex, _lastTriggerIndex);
     
             // Manual disconnect, disable UI updates (timer calls of this method).
             if (_plotFullHistory)
@@ -295,42 +303,68 @@ namespace RealtimePlottingApp.ViewModels
         
         private int CheckForTrigger()
         {
-            if (_triggerLevel != null && _triggerStartIndex != null)
+            if (_triggerLevel != null)
             {
-                // Look at entire data array since the trigger was enabled or last moved.
-                uint[] yDataSinceTriggerStart = _graphData.YData
-                    .Skip((int)_triggerStartIndex) // Skipping historical data from before trigger enable/move
-                    .ToArray();
-
-                // Trigger level is set, see if any plotted value has risen above the trigger level.
-                // Array.FindIndex returns the index of the trigger within the subarray,
-                // so we need to add _triggerStartIndex to get the global index in _graphData.
-                int triggerIndexInSubArray = Array.FindIndex(yDataSinceTriggerStart, val => val >= (uint)_triggerLevel.Y + 1);
-
-                if (triggerIndexInSubArray >= 0 && _triggerStartIndex != null)
+                // Loop over each varable to check trigger for each variable individually
+                for (int v = 0; v < _uniqueVars; v++)
                 {
-                    // Adjust the trigger index by adding _triggerStartIndex to get the correct index in the FULL Y data array.
-                    return (int)_triggerStartIndex + triggerIndexInSubArray;
+                    // Filter only Y-values for variable v since triggerStartIndex - uniqueVars (to ensure we don't miss a rising edge)
+                    // Additionally create simple data tuples for yData which holds a global index and valeue.
+                    var yData = _graphData.YData
+                        .Skip(Math.Max(_triggerStartIndex - _uniqueVars, 0))
+                        .Select((val, idx) => new { GlobalIdx = Math.Max(_triggerStartIndex - _uniqueVars, 0) + idx, Value = val })
+                        .Where(x => x.GlobalIdx % _uniqueVars == v)
+                        .ToList();
+
+                    for (int i = 1; i < yData.Count; i++)
+                    {
+                        uint prev = yData[i - 1].Value;
+                        uint curr = yData[i].Value;
+
+                        if (curr > (uint)_triggerLevel.Y &&
+                            curr > prev &&
+                            prev < (uint)_triggerLevel.Y)
+                        {
+                            // Use the global index of the current point
+                            _lastTriggerIndex = yData[i].GlobalIdx;
+                            return _lastTriggerIndex;
+                        }
+                    }
                 }
             }
 
-            // Return -1 if no trigger is found
-            return -1;
+            return _lastTriggerIndex != -1 ? _lastTriggerIndex : -1;
         }
+
         
         private void HandleTrigger()
         {
-            new Thread(() =>
+            switch (_triggerMode)
             {
-                Thread.Sleep(2000);
-                _timer.Stop(); // Stop Graph UI updates
-                if (_serialReader != null)
-                    MessageBus.Current.SendMessage("UARTDisconnected");
-                else if (_canBus != null)
-                    MessageBus.Current.SendMessage("CANDisconnected");
-                _plotTriggerView = true;
-                ResetDataChannels();
-            }).Start();
+                case "Single Trigger":
+                    new Thread(() =>
+                    {
+                        Thread.Sleep(2000);
+                        _timer.Stop(); // Stop Graph UI updates
+                        if (_serialReader != null)
+                            MessageBus.Current.SendMessage("UARTDisconnected");
+                        else if (_canBus != null)
+                            MessageBus.Current.SendMessage("CANDisconnected");
+                        _plotTriggerView = true;
+                        ResetDataChannels();
+                    }).Start();
+                    break;
+                
+                case "Normal Trigger":
+                {
+                    lock (_graphData)
+                    {
+                        _triggerStartIndex = _graphData.YData.Count;
+                    }
+
+                    break;
+                }
+            }
         }
         
         private void ExtractGraphData(out double[] xDataDouble, out double[] yDataDouble, out int triggerIndex)
@@ -339,8 +373,7 @@ namespace RealtimePlottingApp.ViewModels
             lock(_graphData)
             { 
                 int totalPoints = _graphData.XData.Count;
-                // Plot last `WindowWidth` points. Performance seems good  up to the tens of thousands,
-                // and trying to fit more on screen during plotting is unreasonable.
+                // Determine candidate for where to start plotting data from on this UI update.
                 int candidate = (!_plotFullHistory && totalPoints > (int)WindowWidth * _uniqueVars)
                     ? totalPoints - (int)WindowWidth * _uniqueVars
                     : 0;
@@ -348,9 +381,33 @@ namespace RealtimePlottingApp.ViewModels
                 // Check whether trigger point has been reached.
                 // If it has, set candidate to 0 such that all historical points are included. 
                 triggerIndex = CheckForTrigger();
-                if (triggerIndex >= 0)
+                if (triggerIndex >= 0 && !_plotFullHistory)
                 {
-                    candidate = 0;
+                    switch (_triggerMode)
+                    {
+                        case "Single Trigger":
+                            candidate = 0;
+                            break;
+                        case "Normal Trigger":
+                            // Ensure candidate is always >= 0
+                            candidate = Math.Max(triggerIndex - ((int)WindowWidth * _uniqueVars), 0);
+                            // Since trigger occured and we do not use full array,
+                            // adjust trigger index relative to the subarray we provide.
+                            triggerIndex -= candidate;
+                            break;
+                    }
+                }
+                else if (!_plotFullHistory)
+                {
+                    // Check if a last trigger exists, normal trigger is enabled:
+                    if (_lastTriggerIndex >= 0 && _triggerMode == "Normal Trigger")
+                    {
+                        // Set candidate to the most recent trigger, such that the subarray x/yDataDouble
+                        // will be the most recent trigger and forward. 
+                        candidate = Math.Max(_lastTriggerIndex - ((int)WindowWidth * _uniqueVars),0);
+                        // set triggerindex relative to the subarray from the last trigger.
+                        triggerIndex = _lastTriggerIndex - candidate;
+                    }
                 }
 
                 // Ensures sub-array will start at a position that aligns with the interleaved data structure
@@ -368,7 +425,7 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
 
-        private void UpdateGraphUI(double[] xDataDouble, double[] yDataDouble, int triggerIndex)
+        private void UpdateGraphUI(double[] xDataDouble, double[] yDataDouble, int triggerIndex, int globalTriggerIndex)
         {
             // Update UI asynchronously on Avalonia's UI Thread
             Dispatcher.UIThread.InvokeAsync(() =>
@@ -399,33 +456,44 @@ namespace RealtimePlottingApp.ViewModels
                         signal.IsVisible = false;
 
                     // If a triggerIndex is plotted, mark it such that the user can see which point triggered.
-                    if (triggerIndex >= 0 && triggerIndex < xVar.Length)
+                    if (triggerIndex >= 0 && globalTriggerIndex % _uniqueVars == v)
                     {
-                        // Triggered point
-                        double triggerX = xVar[triggerIndex];
-                        double triggerY = yVar[triggerIndex];
+                        // (Local Index for aligning index to interleaved arrays)
+                        int localIndex = _uniqueVars == 1 ? triggerIndex : triggerIndex / _uniqueVars;
 
-                        // Point before trigger (for calculating (x,y) interpolations)
-                        double xBefore = xVar[triggerIndex - 1];
-                        double yBefore = yVar[triggerIndex - 1];
-                        
-                        if (_triggerLevel != null && _triggerLevel.Y > yBefore && (triggerX - xBefore) != 0)
+                        if (localIndex > 0 && localIndex < xVar.Length)
                         {
-                            // Find intersection of triggerLevel and the line between trigger point and prev. point.
-                            double slope = (triggerY - yBefore) / (triggerX - xBefore);
-                            double intersectionX = triggerX + (_triggerLevel.Y - triggerY) / slope;
-                            // Place trigger point marker on the rising edge where the triggerLevel was passed
-                            // for better visual representation.
-                            var marker = LinePlot.Plot.Add.Scatter(intersectionX, _triggerLevel.Y, Colors.Black);
-                            marker.MarkerShape = MarkerShape.FilledDiamond;
-                            marker.MarkerSize = 6;
-                        }
-                        else // Fallback
-                        {
-                            // Add the marker at the trigger point
-                            var marker = LinePlot.Plot.Add.Scatter(triggerX, triggerY, color: Colors.Black);
-                            marker.MarkerShape = MarkerShape.FilledDiamond;
-                            marker.MarkerSize = 6;
+                            // Triggered point
+                            double triggerX = xVar[localIndex];
+                            double triggerY = yVar[localIndex];
+                            
+                            // Point before trigger (for calculating (x,y) interpolations)
+                            double xBefore = xVar[localIndex - 1];
+                            double yBefore = yVar[localIndex - 1];
+
+                            // Check whether we can find intersection/interpolaton of rising edge and triggerlevel
+                            if (_triggerLevel != null &&
+                                _triggerLevel.Y > yBefore &&
+                                _triggerLevel.Y < triggerY &&
+                                (triggerX - xBefore) != 0)
+                            {
+                                // Find intersection of triggerLevel and the line between trigger point and prev. point.
+                                double slope = (triggerY - yBefore) / (triggerX - xBefore);
+                                double intersectionX = triggerX + (_triggerLevel.Y - triggerY) / slope;
+
+                                // Place trigger point marker on the rising edge where the triggerLevel was passed
+                                // for better visual representation.
+                                var marker = LinePlot.Plot.Add.Scatter(intersectionX, _triggerLevel.Y, Colors.Black);
+                                marker.MarkerShape = MarkerShape.FilledDiamond;
+                                marker.MarkerSize = 6;
+                            }
+                            else // Fallback
+                            {
+                                // Add the marker at the trigger point
+                                var marker = LinePlot.Plot.Add.Scatter(triggerX, triggerY, color: Colors.Black);
+                                marker.MarkerShape = MarkerShape.FilledDiamond;
+                                marker.MarkerSize = 6;
+                            }
                         }
                     }
                 }
@@ -508,6 +576,8 @@ namespace RealtimePlottingApp.ViewModels
                         triggerLevel.IsVisible = true;
                         triggerLevel.Text = startText;
                         triggerLevel.LinePattern = LinePattern.Dashed;
+                        triggerLevel.LineColor = Color.FromHex("#2987CC"); // Same blue as UI
+                        triggerLevel.LabelBackgroundColor = Color.FromHex("#2987CC"); // -::-
                     }
                 }
             }
@@ -680,6 +750,15 @@ namespace RealtimePlottingApp.ViewModels
             if (_canBus != null)
                 _canBus.MessageReceived -= OnCanDataReceived;
             _canBus = null;
+        }
+
+        // Used to reset any internal state used for internal trigger logic,
+        // such that a new connection is not affected by triggers of previosu connections.
+        private void ResetTrigger()
+        {
+            _triggerStartIndex = 0;
+            _lastTriggerIndex = -1;
+            _plotTriggerView = false;
         }
         
         // =============== Handle graph visibility =============== //
