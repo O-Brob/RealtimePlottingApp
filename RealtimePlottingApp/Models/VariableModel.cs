@@ -41,6 +41,10 @@ public class VariableModel : ReactiveObject, IVariableModel
     public bool IsTriggerable
     {
         get => _isTriggerable;
-        set => this.RaiseAndSetIfChanged(ref _isTriggerable, value);
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _isTriggerable, value);
+            MessageBus.Current.SendMessage("TriggerableChanged","TriggerUpdate");
+        }
     }
 }

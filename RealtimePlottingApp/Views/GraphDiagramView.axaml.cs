@@ -102,7 +102,7 @@ public partial class GraphDiagramView : UserControl
             }
             
             // If anyone wants to know if the trigger is manually moved, this contract can be subscribed to.
-            MessageBus.Current.SendMessage(_draggedTriggerLevel,"TriggerDragged");
+            MessageBus.Current.SendMessage("TriggerLevelDragged","TriggerUpdate");
 
             LinePlot.Refresh();
         }

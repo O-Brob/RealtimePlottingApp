@@ -238,7 +238,7 @@ namespace RealtimePlottingApp.ViewModels
             });
             
             // Receive notice whenever trigger level is moved manually by mouse dragging.
-            MessageBus.Current.Listen<AxisLine>("TriggerDragged").Subscribe(_ =>
+            MessageBus.Current.Listen<string>("TriggerUpdate").Subscribe(_ =>
             {
                 if ((_triggerStartIndex == _graphData.XData.Count) || _plotTriggerView)
                     return; // No need to write value. Graph hasn't changed, or triggerview has already been enabled.
@@ -336,9 +336,8 @@ namespace RealtimePlottingApp.ViewModels
                 }
             }
 
-            return _lastTriggerIndex != -1 ? _lastTriggerIndex : -1;
+            return -1;
         }
-
         
         private void HandleTrigger()
         {
@@ -378,8 +377,12 @@ namespace RealtimePlottingApp.ViewModels
                 int totalPoints = _graphData.XData.Count;
                 // Determine candidate for where to start plotting data from on this UI update.
                 int candidate = (!_plotFullHistory && totalPoints > (int)WindowWidth * _uniqueVars)
-                    ? totalPoints - (int)WindowWidth * _uniqueVars
+                    ? totalPoints - ((int)WindowWidth * _uniqueVars + 1)
                     : 0;
+
+                // Indexes to determine subarray ranges for xDataDouble and yDataDouble
+                int startIndex;
+                int endIndex;
                 
                 // Check whether trigger point has been reached.
                 // If it has, set candidate to 0 such that all historical points are included. 
@@ -399,6 +402,10 @@ namespace RealtimePlottingApp.ViewModels
                             triggerIndex -= candidate;
                             break;
                     }
+                    
+                    // Set range to from candidate until end of full data array
+                    startIndex = candidate - (candidate % _uniqueVars);
+                    endIndex = totalPoints;
                 }
                 else if (!_plotFullHistory)
                 {
@@ -410,19 +417,39 @@ namespace RealtimePlottingApp.ViewModels
                         candidate = Math.Max(_lastTriggerIndex - ((int)WindowWidth * _uniqueVars),0);
                         // set triggerindex relative to the subarray from the last trigger.
                         triggerIndex = _lastTriggerIndex - candidate;
+                        
+                        // Limit number of points when no new trigger occurs to stay performant
+                        startIndex = candidate - (candidate % _uniqueVars);
+                        if (totalPoints >= startIndex + ((int)WindowWidth * _uniqueVars))
+                        {
+                            endIndex = startIndex + (2 * (int)WindowWidth * _uniqueVars);
+                            endIndex = Math.Min(endIndex, totalPoints - (totalPoints % _uniqueVars));
+                        }
+                        else
+                            endIndex = totalPoints;
+                    }
+                    else // Fallback for no trigger & no history mode
+                    {
+                        startIndex = candidate - (candidate % _uniqueVars);
+                        endIndex = totalPoints;
                     }
                 }
-
-                // Ensures sub-array will start at a position that aligns with the interleaved data structure
-                int startIndex = candidate - (candidate % _uniqueVars);
+                else
+                {
+                    // Full history mode, ensure indexes are set.
+                    startIndex = candidate - (candidate % _uniqueVars);
+                    endIndex = totalPoints;
+                }
                 
                 xDataDouble = _graphData.XData
                     .Skip(startIndex)
+                    .Take(endIndex - startIndex)
                     .Select(val => (double)val)
                     .ToArray();
                 
                 yDataDouble = _graphData.YData
                     .Skip(startIndex)
+                    .Take(endIndex - startIndex)
                     .Select(val => (double)val)
                     .ToArray();
             }
