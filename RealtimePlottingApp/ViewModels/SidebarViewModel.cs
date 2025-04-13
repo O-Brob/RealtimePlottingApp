@@ -316,7 +316,7 @@ namespace RealtimePlottingApp.ViewModels
                     if (msg.Equals("UARTConnected"))
                     {
                         for (int i = 0; i < _uniqueVariableCount; i++)
-                            newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
+                            newList.Add(new VariableModel { Name = $"Var {i+1}" });
                     }
                     else if (msg.Equals("CANConnected"))
                     {
@@ -325,7 +325,7 @@ namespace RealtimePlottingApp.ViewModels
                             _canDataMask.Where(c => char.IsDigit(c))
                         ).Count;
                         for(int i = 0; i < numberOfCanVars; i++)
-                            newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
+                            newList.Add(new VariableModel { Name = $"Var {i+1}" });
                     }
                     
                     Variables = newList;

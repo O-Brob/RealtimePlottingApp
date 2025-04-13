@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewmodel="clr-namespace:RealtimePlottingApp.ViewModels"
              xmlns:converters="clr-namespace:RealtimePlottingApp.Converters"
-             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="500"
              x:Class="RealtimePlottingApp.Views.SidebarView"
              x:DataType="viewmodel:SidebarViewModel">
     
@@ -271,7 +271,7 @@
             <TabItem Header="Plot Config"
                      FontSize="12"
                      FontWeight="SemiBold">
-                <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, *">
+                <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, *">
                     
                     <!-- X-Axis Variable Range Selector -->
                     <Label FontFamily="Segoe UI" 
@@ -372,12 +372,46 @@
                         Plotted Variables:
                     </Label>
                     
-                    <ScrollViewer Grid.Row="10"
+                    <Grid Grid.Row="10"
+                          ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock 
+                            Grid.Column="0"
+                            Margin="15,0,0,0"
+                            VerticalAlignment="Center">
+                            Name
+                        </TextBlock>
+                        
+                        <Image Grid.Column="1"
+                               Source="../Assets/VisibilityToggle.png"
+                               Width="22"
+                               Height="22"
+                               VerticalAlignment="Bottom"
+                               Margin="0,0,9,0"
+                               RenderOptions.BitmapInterpolationMode="HighQuality">
+                            <ToolTip.Tip>
+                                Variable Visibility
+                            </ToolTip.Tip>
+                        </Image>
+                        
+                        <Image Grid.Column="2"
+                               Source="../Assets/TriggerableToggle.png"
+                               Width="24"
+                               Height="24"
+                               VerticalAlignment="Center"
+                               Margin="0,0,21,0"
+                               RenderOptions.BitmapInterpolationMode="HighQuality">
+                            <ToolTip.Tip>
+                                Variable Triggerable
+                            </ToolTip.Tip>
+                        </Image>
+                    </Grid>
+                    
+                    <ScrollViewer Grid.Row="11"
                                   Margin="5,5,5,15">
                         <ItemsControl ItemsSource="{Binding Variables}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="*,Auto">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
                                         <TextBox Grid.Column="0"
                                                    FontSize="16"
                                                    VerticalAlignment="Center"
@@ -386,8 +420,19 @@
                                                    Margin="0,0,5,0"
                                                    Text="{Binding Name}"/>
                                         <CheckBox Grid.Column="1"
+                                                  Margin="0,0,5,0"
+                                                  IsChecked="{Binding IsChecked}">
+                                            <ToolTip.Tip>
+                                                Toggle the variable's visibility in the plot
+                                            </ToolTip.Tip>
+                                        </CheckBox>
+                                        <CheckBox Grid.Column="2"
                                                   Margin="0,0,10,0"
-                                                  IsChecked="{Binding IsChecked}"/>
+                                                  IsChecked="{Binding IsTriggerable}">
+                                            <ToolTip.Tip>
+                                                Toggle whether the variable should be able to cause triggers
+                                            </ToolTip.Tip>
+                                        </CheckBox>
                                     </Grid>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>

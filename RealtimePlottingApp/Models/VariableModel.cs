@@ -10,6 +10,7 @@ public class VariableModel : ReactiveObject, IVariableModel
 {
     private string _name = "Variable";
     private bool _isChecked = true;
+    private bool _isTriggerable = false;
 
     /// <summary>
     /// Gets or sets the name of the variable.
@@ -22,12 +23,24 @@ public class VariableModel : ReactiveObject, IVariableModel
     }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the variable is selected.
+    /// Gets or sets a value indicating whether the variable is selected
+    /// and should be shown/visible on the graph.
     /// Notifies UI when changed!
     /// </summary>
     public bool IsChecked
     {
         get => _isChecked;
         set => this.RaiseAndSetIfChanged(ref _isChecked, value);
+    }
+
+    /// <summary>
+    /// Gets or sets a state indicating whether
+    /// this variable should be considered part of the
+    /// trigger channel.
+    /// </summary>
+    public bool IsTriggerable
+    {
+        get => _isTriggerable;
+        set => this.RaiseAndSetIfChanged(ref _isTriggerable, value);
     }
 }

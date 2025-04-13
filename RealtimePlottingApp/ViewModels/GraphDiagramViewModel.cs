@@ -44,7 +44,7 @@ namespace RealtimePlottingApp.ViewModels
         private string _triggerMode = "Single Trigger"; // Holds the selected trigger mode as a string.
 
         // --- Plotting modes & restraints --- //
-        private const bool _enableDataGeneratorTesting = true;
+        private const bool _enableDataGeneratorTesting = false;
         private bool _plotFullHistory; // false default
         private double WindowWidth = 75;
         private int _triggerStartIndex; // Represents the start index of when the trigger was *enabled!* (not triggered)
@@ -308,6 +308,9 @@ namespace RealtimePlottingApp.ViewModels
                 // Loop over each varable to check trigger for each variable individually
                 for (int v = 0; v < _uniqueVars; v++)
                 {
+                    // Skip checking triggers on this variable if it is not set as triggerable
+                    if (_plotConfigVariables != null && v < _plotConfigVariables.Count && _plotConfigVariables[v].IsTriggerable == false) continue;
+                    
                     // Filter only Y-values for variable v since triggerStartIndex - uniqueVars (to ensure we don't miss a rising edge)
                     // Additionally create simple data tuples for yData which holds a global index and valeue.
                     var yData = _graphData.YData
