@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace RealtimePlottingApp.Models
+namespace RealtimePlottingApp.Events
 {
     /// <summary>
     /// Event arguments for a received CAN message.

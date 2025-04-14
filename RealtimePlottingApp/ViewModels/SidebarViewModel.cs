@@ -89,6 +89,34 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
 
+        // Trigger Level enable checkbox
+        private bool _trigChecked; // false default
+
+        public bool TrigChecked
+        {
+            get => _trigChecked;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _trigChecked, value);
+                MessageBus.Current.SendMessage(_trigChecked, "TrigChecked");
+            }
+        }
+        
+        // Trigger Mode combobox dropdown
+        private ComboBoxItem? _selectedTriggerMode;
+
+        public ComboBoxItem? SelectedTriggerMode
+        {
+            get => _selectedTriggerMode;
+            set
+            {
+                // Update the value and send the new trigger mode on the bus as a string.
+                this.RaiseAndSetIfChanged(ref _selectedTriggerMode, value);
+                MessageBus.Current.SendMessage(_selectedTriggerMode?.Content?.ToString(),
+                    "SelectedTriggerMode");
+            }
+        }
+        
         // ========== CAN Data Bindings ========== //
         // CAN-Interface Input
         private string? _canInterfaceInput = "";
@@ -288,7 +316,7 @@ namespace RealtimePlottingApp.ViewModels
                     if (msg.Equals("UARTConnected"))
                     {
                         for (int i = 0; i < _uniqueVariableCount; i++)
-                            newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
+                            newList.Add(new VariableModel { Name = $"Var {i+1}" });
                     }
                     else if (msg.Equals("CANConnected"))
                     {
@@ -297,7 +325,7 @@ namespace RealtimePlottingApp.ViewModels
                             _canDataMask.Where(c => char.IsDigit(c))
                         ).Count;
                         for(int i = 0; i < numberOfCanVars; i++)
-                            newList.Add(new VariableModel { Name = $"Var {i+1}", IsChecked = true });
+                            newList.Add(new VariableModel { Name = $"Var {i+1}" });
                     }
                     
                     Variables = newList;

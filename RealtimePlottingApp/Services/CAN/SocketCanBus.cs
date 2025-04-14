@@ -5,7 +5,7 @@ using SocketCANSharp;
 using System.Threading;
 using System.Net.Sockets;
 using System.Linq;
-using RealtimePlottingApp.Models;
+using RealtimePlottingApp.Events;
 using SocketCANSharp.Network;
 
 namespace RealtimePlottingApp.Services.CAN

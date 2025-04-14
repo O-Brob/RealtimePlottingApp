@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Runtime.InteropServices;
+using RealtimePlottingApp.Events;
 using RealtimePlottingApp.Models;
 
 namespace RealtimePlottingApp.Services.UART;

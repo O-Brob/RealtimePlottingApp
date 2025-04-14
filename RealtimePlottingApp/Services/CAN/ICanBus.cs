@@ -1,5 +1,5 @@
 ﻿using System;
-using RealtimePlottingApp.Models;
+using RealtimePlottingApp.Events;
 
 namespace RealtimePlottingApp.Services.CAN
 {

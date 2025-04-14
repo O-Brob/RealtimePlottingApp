@@ -1,4 +1,5 @@
 ﻿using System;
+using RealtimePlottingApp.Events;
 using RealtimePlottingApp.Models;
 
 namespace RealtimePlottingApp.Services.UART;

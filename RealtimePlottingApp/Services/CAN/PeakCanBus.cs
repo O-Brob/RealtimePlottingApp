@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading;
 using Peak.Can.Basic;
 using Peak.Can.Basic.BackwardCompatibility;
-using RealtimePlottingApp.Models;
+using RealtimePlottingApp.Events;
 
 namespace RealtimePlottingApp.Services.CAN
 {
