@@ -49,7 +49,7 @@ namespace RealtimePlottingApp.ViewModels
         private double WindowWidth = 75;
         private int _triggerStartIndex; // Represents the start index of when the trigger was *enabled!* (not triggered)
         private int _lastTriggerIndex = -1; // index of most recent trigger
-        private bool _plotTriggerView; // true when trigger has occured. Used to prevent changing _triggerStartIndex
+        private bool _plotTriggerView; // true when single trigger has occured, as we want to lock onto that single trig.
         
         // Palette for predictable & consistent color assignment regardless of Trigger lines, etc.
         // Uses a 25-color palette adapted from Tsitsulin's 12-color xgfs palette
@@ -439,6 +439,14 @@ namespace RealtimePlottingApp.ViewModels
                     // Full history mode, ensure indexes are set.
                     startIndex = candidate - (candidate % _uniqueVars);
                     endIndex = totalPoints;
+                    
+                    // if no new trigger but _lastTriggerIndex is set,
+                    // update triggerIndex to be _lastTriggerIndex.
+                    if (triggerIndex < 0 && _lastTriggerIndex >= 0 && _triggerMode == "Normal Trigger")
+                    {
+                        // Subtraction by candidate (0) in full-history mode
+                        triggerIndex = _lastTriggerIndex;
+                    }
                 }
                 
                 xDataDouble = _graphData.XData
@@ -529,7 +537,7 @@ namespace RealtimePlottingApp.ViewModels
                 }
 
                 // Call helper to adjust the graph view for the new data (or trigger points)
-                AdjustGraphView(xDataDouble, triggerIndex);
+                AdjustGraphView(xDataDouble, _plotTriggerView ? globalTriggerIndex : triggerIndex);
 
                 // Add legend so each variable is identifiable.
                 LinePlot.Plot.ShowLegend();
