@@ -9,7 +9,6 @@ public partial class ConfigParser : IConfigParser
 {
     public bool ParseUartConfig(string message, out string comPort, out int baudRate, out UARTDataPayloadSize dataSize, out int uniqueVars)
     {
-        const string pattern = @"^ConnectUart:ComPort:(?<comPort>[^,]+),BaudRate:(?<baudRate>\d+),DataSize:(?<dataSize>\d+ bits),UniqueVars:(?<uniqueVars>\d+)$";
         Match match = GeneratedUartRegex().Match(message);
 
         if (match.Success)
@@ -37,7 +36,6 @@ public partial class ConfigParser : IConfigParser
     
     public bool ParseCanConfig(string message, out string canInterface, out string bitRate, out int canIdFilter, out string dataPayloadMask)
     {
-        const string pattern = @"^ConnectCan:CanInterface:(?<canInterface>[^,]+),BitRate:(?<bitRate>[^,]+),CanIdFilter:(?<canIdFilter>\d+),DataPayloadMask:(?<dataPayloadMask>.+)$";
         Match match = GeneratedCanRegex().Match(message);
 
         if (match.Success)
