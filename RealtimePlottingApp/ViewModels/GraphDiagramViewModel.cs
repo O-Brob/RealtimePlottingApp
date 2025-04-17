@@ -7,11 +7,10 @@ using System.Timers;
 using Avalonia.Controls;
 using Avalonia.Threading;
 using ReactiveUI;
-using RealtimePlottingApp.Events;
 using RealtimePlottingApp.Models;
-using RealtimePlottingApp.Services;
 using RealtimePlottingApp.Services.CAN;
 using RealtimePlottingApp.Services.ConfigParsers;
+using RealtimePlottingApp.Services.DataChannels;
 using RealtimePlottingApp.Services.UART;
 using ScottPlot;
 using ScottPlot.Avalonia;
@@ -24,9 +23,7 @@ namespace RealtimePlottingApp.ViewModels
     public class GraphDiagramViewModel : ViewModelBase
     {
         // --- Data channels --- //
-        private ISerialReader? _serialReader;
-        private ICanBus? _canBus;
-        private DataGenerator? _dataGenerator;
+        private IDataChannel? _dataChannel; // Holds current data channel
         
         // --- Models --- //
         private readonly GraphDataModel _graphData;
@@ -40,8 +37,6 @@ namespace RealtimePlottingApp.ViewModels
         // --- Graph elements from View --- //
         public AvaPlot? LinePlot { get; set; }  // Line-plot assigned from View
         private int _uniqueVars = 1; // 1 Variable as default. Could change alongside UI config.
-        private string _canDataPayloadMask = String.Empty; // Variable mask for the data payload during CAN reading.
-        private int _canIdFilter;
         private ObservableCollection<IVariableModel>? _plotConfigVariables;
         private HorizontalLine? _triggerLevel; // Holds trigger level when enabled, else null
         private string _triggerMode = "Single Trigger"; // Holds the selected trigger mode as a string.
@@ -84,12 +79,13 @@ namespace RealtimePlottingApp.ViewModels
                     {
                         try
                         {
-                            ResetDataChannels(); // Ensure no channel exists for any medium
+                            _dataChannel?.Disconnect(); // Ensure no channel exists for any medium
                             ResetTrigger();
                             _graphData.Clear(); // Clear graph data to plot new connection's data
-                            _serialReader = new UARTSerialReader();
-                            _serialReader.TimestampedDataReceived += OnUartDataReceived;
-                            _serialReader.StartSerial(comPort, baudRate, dataSize);
+                            _dataChannel = new UartDataChannel( // Set data channel to UART
+                                new UARTSerialReader(), comPort, baudRate, dataSize, _graphData
+                            );
+                            _dataChannel.Connect();
                             _plotFullHistory = false; // Allow progressive plotting.
                             _timer.Start(); // Start UI updates
                             MessageBus.Current.SendMessage("UARTConnected"); // Indicate success
@@ -106,8 +102,7 @@ namespace RealtimePlottingApp.ViewModels
                 {
                     try
                     {
-                        _serialReader?.StopSerial();
-                        ResetDataChannels();
+                        _dataChannel?.Disconnect();
                         MessageBus.Current.SendMessage("UARTDisconnected");
                         EnableFullHistory();
                     }
@@ -121,25 +116,28 @@ namespace RealtimePlottingApp.ViewModels
                 else if (msg.StartsWith("ConnectCan"))
                 {
                     if (_configParser.ParseCanConfig(msg, out string canInterface, out string bitRate, 
-                            out _canIdFilter, out _canDataPayloadMask))
+                            out int canIdFilter, out string canDataPayloadMask))
                     {
                         try
                         {
-                            ResetDataChannels(); // Ensure no channel exists for any medium
+                            _dataChannel?.Disconnect(); // Ensure no channel exists for any medium
                             ResetTrigger();
                             _graphData.Clear(); // Clear graph data to plot new connection's data
-                            _canBus = ControllerAreaNetwork.Create();
-                            _canBus.MessageReceived += OnCanDataReceived;
+                            
+                            _dataChannel = new CanDataChannel( // Set Data Channel to CAN
+                                ControllerAreaNetwork.Create(), canInterface,
+                                // On Linux bitrate is not set via gui, but socketcan.
+                                OperatingSystem.IsWindows() ? bitRate : null, 
+                                canIdFilter, canDataPayloadMask, _graphData
+                            );
                             
                             // Extract digits from mask to a Set to find out how many unique variables there are.
                             _uniqueVars = new HashSet<char>(
-                                _canDataPayloadMask.Where(c => char.IsDigit(c))
+                                canDataPayloadMask.Where(c => char.IsDigit(c))
                             ).Count;
                             
-                            if(OperatingSystem.IsWindows()) // On windows the gui-provided bitrate is used
-                                _canBus.Connect(canInterface, bitRate);
-                            else if (OperatingSystem.IsLinux()) // On Linux bitrate is not set via gui, but socketcan.
-                                _canBus.Connect(canInterface, null);
+                            _dataChannel.Connect();
+                            
                             
                             _plotFullHistory = false; // Allow progressive plotting.
                             _timer.Start(); // Start UI updates
@@ -157,7 +155,7 @@ namespace RealtimePlottingApp.ViewModels
                 {
                     try
                     {
-                        ResetDataChannels();
+                        _dataChannel?.Disconnect();
                         MessageBus.Current.SendMessage("CANDisconnected");
                         EnableFullHistory();
                     }
@@ -262,16 +260,9 @@ namespace RealtimePlottingApp.ViewModels
             if (_enableDataGeneratorTesting) // Enable data generator
             {
                 _plotConfigVariables = [];
-                _dataGenerator = new DataGenerator();
-                _dataGenerator.DataAvailable += () =>
-                {
-                    lock (_graphData)
-                    {
-                        _graphData.AddPoint(_dataGenerator.XData.Last(), _dataGenerator.YData.Last());
-                    }
-                };
+                _dataChannel = new DataGeneratorChannel(_graphData);
                 _timer.Start();
-                _dataGenerator.Start();
+                _dataChannel.Connect();
             }
         }
         
@@ -353,12 +344,17 @@ namespace RealtimePlottingApp.ViewModels
                     {
                         Thread.Sleep(2000);
                         _timer.Stop(); // Stop Graph UI updates
-                        if (_serialReader != null)
-                            MessageBus.Current.SendMessage("UARTDisconnected");
-                        else if (_canBus != null)
-                            MessageBus.Current.SendMessage("CANDisconnected");
+                        switch (_dataChannel)
+                        {
+                            case UartDataChannel:
+                                MessageBus.Current.SendMessage("UARTDisconnected");
+                                break;
+                            case CanDataChannel:
+                                MessageBus.Current.SendMessage("CANDisconnected");
+                                break;
+                        }
                         _plotTriggerView = true;
-                        ResetDataChannels();
+                        _dataChannel?.Disconnect();
                     }).Start();
                     break;
                 
@@ -638,52 +634,7 @@ namespace RealtimePlottingApp.ViewModels
             LinePlot?.Refresh();
         }
         
-        //================ Data receive handlers =============== //
-        private void OnUartDataReceived(object? sender, TimestampedDataReceivedEvent e)
-        {
-            lock (_graphData)
-            {
-                foreach (var package in e.Packages)
-                {
-                    // Add timestamp and accompanied data.
-                    _graphData.AddPoint(package.Time, package.Data);
-                }
-            }
-        }
-
-        private void OnCanDataReceived(object? sender, CanMessageReceivedEvent e)
-        {
-            if (_canIdFilter == e.CanId) // Filter by requested ID
-            {
-                List<uint> variables = _configParser.ParseCanDataMask(_canDataPayloadMask, e.Data);
-                lock (_graphData)
-                {
-                    foreach (var value in variables)
-                    {
-                        _graphData.AddPoint(e.Timestamp, value);
-                    }
-                }
-            }
-        }
-
-        private void ResetDataChannels()
-        {
-            _dataGenerator?.Stop();
-            _dataGenerator = null;
-            
-            // Stop ISerialReader if it's on, and nullify.
-            _serialReader?.StopSerial();
-            if(_serialReader != null)
-                _serialReader.TimestampedDataReceived -= OnUartDataReceived;
-            _serialReader = null;
-            
-            // Stop ICanBus if it's on, and nullify.
-            _canBus?.Disconnect();
-            if (_canBus != null)
-                _canBus.MessageReceived -= OnCanDataReceived;
-            _canBus = null;
-        }
-
+        //================ Internal state Handlers =============== //
         // Used to reset any internal state used for internal trigger logic,
         // such that a new connection is not affected by triggers of previosu connections.
         private void ResetTrigger()
