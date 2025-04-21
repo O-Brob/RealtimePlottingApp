@@ -56,6 +56,82 @@ namespace RealtimePlottingApp.ViewModels
             _uiUpdateTimer = new Timer(100); // ms between UI updates
             _uiUpdateTimer.Elapsed += UpdatePlot;
             
+            // Initialize subscriptions for incoming message bus messages.
+            MessageBusSubscriptionInit();
+            
+            // Enable data generator for testing:
+            if (_enableDataGeneratorTesting) // Enable data generator
+            {
+                _plotUiService.PlotConfigVariables =
+                    [new VariableModel { Name = "Var 1", IsChecked = true, IsTriggerable = true }];
+                _dataChannel = new DataGeneratorChannel(_graphDataService.GraphData);
+                _uiUpdateTimer.Start();
+                _dataChannel.Connect();
+            }
+        }
+        
+        // =============== Graph Update Loop =============== //
+        private void UpdatePlot(object? sender, ElapsedEventArgs? e)
+        {
+            // Trigger index indicating whether trigger has occured.
+            int triggerIndex = _triggerService.CheckForTrigger(
+                _graphDataService.GraphData, _plotUiService.PlotConfigVariables,
+                _graphDataService.UniqueVars, _plotUiService.TriggerLevel);
+            
+            if (triggerIndex >= 0)
+            {
+                // Trigger has occured, handle it accordingly.
+                _triggerService.HandleTrigger(_dataChannel, _uiUpdateTimer, _graphDataService.GraphData);
+            }
+            
+            // Get sub-arrays and a relative trigger index
+            _graphDataService.GetSubData(
+                out double[] xDataDouble,
+                out double[] yDataDouble,
+                out int subArrTriggerIndex,
+                triggerIndex >= 0 ? triggerIndex : null,
+                _triggerService.LastTriggerIndex >= 0 ? _triggerService.LastTriggerIndex : null,
+                _triggerService.Mode
+            );
+            
+            // Keep UI Service's flags up to date
+            _plotUiService.PlotFullHistory = _graphDataService.IsFullHistory;
+            _plotUiService.LockTriggerLevel = _triggerService.PlotTriggerView;
+
+            // Update the graph's UI in regards to the extracted data and trigger indexes.
+            _plotUiService.UpdateGraphUI(xDataDouble, yDataDouble, 
+                subArrTriggerIndex, _triggerService.LastTriggerIndex);
+            
+            // Manual disconnect, disable UI updates (timer calls of this method).
+            if (_graphDataService.IsFullHistory)
+            {
+                _uiUpdateTimer.Stop();
+            }
+        }
+        
+        // =============== Handle graph visibility =============== //
+        private bool _plot1Visible = true;
+        private bool _plot2Visible; // false default
+
+        public bool Plot1Visible
+        {
+            get => _plot1Visible;
+            set => this.RaiseAndSetIfChanged(ref _plot1Visible, value);
+        }
+
+        public bool Plot2Visible
+        {
+            get => _plot2Visible;
+            set => this.RaiseAndSetIfChanged(ref _plot2Visible, value);
+        }
+
+        // Computed properties for row heights:
+        public GridLength Row1Height => Plot1Visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        public GridLength Row2Height => Plot2Visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+        
+        // =============== Message Bus Initializer =============== //
+        private void MessageBusSubscriptionInit()
+        {
             // --- Initialize MessageBuses for incoming messages --- //
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {
@@ -250,76 +326,7 @@ namespace RealtimePlottingApp.ViewModels
                     _ => _triggerService.Mode // No change.
                 };
             });
-            
-            // Enable data generator for testing:
-            if (_enableDataGeneratorTesting) // Enable data generator
-            {
-                _plotUiService.PlotConfigVariables =
-                    [new VariableModel { Name = "Var 1", IsChecked = true, IsTriggerable = true }];
-                _dataChannel = new DataGeneratorChannel(_graphDataService.GraphData);
-                _uiUpdateTimer.Start();
-                _dataChannel.Connect();
-            }
         }
-        
-        // =============== Graph Update Loop =============== //
-        private void UpdatePlot(object? sender, ElapsedEventArgs? e)
-        {
-            // Trigger index indicating whether trigger has occured.
-            int triggerIndex = _triggerService.CheckForTrigger(
-                _graphDataService.GraphData, _plotUiService.PlotConfigVariables,
-                _graphDataService.UniqueVars, _plotUiService.TriggerLevel);
-            
-            if (triggerIndex >= 0)
-            {
-                // Trigger has occured, handle it accordingly.
-                _triggerService.HandleTrigger(_dataChannel, _uiUpdateTimer, _graphDataService.GraphData);
-            }
-            
-            // Get sub-arrays and a relative trigger index
-            _graphDataService.GetSubData(
-                out double[] xDataDouble,
-                out double[] yDataDouble,
-                out int subArrTriggerIndex,
-                triggerIndex >= 0 ? triggerIndex : null,
-                _triggerService.LastTriggerIndex >= 0 ? _triggerService.LastTriggerIndex : null,
-                _triggerService.Mode
-            );
-            
-            // Keep UI Service's flags up to date
-            _plotUiService.PlotFullHistory = _graphDataService.IsFullHistory;
-            _plotUiService.LockTriggerLevel = _triggerService.PlotTriggerView;
-
-            // Update the graph's UI in regards to the extracted data and trigger indexes.
-            _plotUiService.UpdateGraphUI(xDataDouble, yDataDouble, 
-                subArrTriggerIndex, _triggerService.LastTriggerIndex);
-            
-            // Manual disconnect, disable UI updates (timer calls of this method).
-            if (_graphDataService.IsFullHistory)
-            {
-                _uiUpdateTimer.Stop();
-            }
-        }
-        
-        // =============== Handle graph visibility =============== //
-        private bool _plot1Visible = true;
-        private bool _plot2Visible; // false default
-
-        public bool Plot1Visible
-        {
-            get => _plot1Visible;
-            set => this.RaiseAndSetIfChanged(ref _plot1Visible, value);
-        }
-
-        public bool Plot2Visible
-        {
-            get => _plot2Visible;
-            set => this.RaiseAndSetIfChanged(ref _plot2Visible, value);
-        }
-
-        // Computed properties for row heights:
-        public GridLength Row1Height => Plot1Visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        public GridLength Row2Height => Plot2Visible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
         
     }
 }
