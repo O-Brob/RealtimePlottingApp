@@ -48,7 +48,7 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
         }
 
         public void GetSubData(out double[] xDataDouble, out double[] yDataDouble, out int localTriggerIndex, 
-            int? currentTriggerIndex, int? lastTriggerIndex, string triggerMode)
+            int? currentTriggerIndex, int? lastTriggerIndex, TriggerMode triggerMode)
         {
             // Lock the graph data while reading it to ensure consistency
             lock (_graphData)
@@ -70,12 +70,12 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
                 {
                     switch (triggerMode)
                     {
-                        case "Single Trigger":
+                        case TriggerMode.Single_Trigger:
                             localTriggerIndex = currentTriggerIndex.Value;
                             candidate = 0;
                             break;
 
-                        case "Normal Trigger":
+                        case TriggerMode.Normal_Trigger:
                             // Ensure candidate is always >= 0
                             candidate = Math.Max(currentTriggerIndex.Value - ((int)_windowWidth * _uniqueVars), 0);
                             // Since trigger occured and we do not use full array,
@@ -91,7 +91,7 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
                 else if (!_plotFullHistory)
                 {
                     // Check if a last trigger exists, normal trigger is enabled:
-                    if (lastTriggerIndex.HasValue && triggerMode == "Normal Trigger")
+                    if (lastTriggerIndex.HasValue && triggerMode == TriggerMode.Normal_Trigger)
                     {
                         // Set candidate to the most recent trigger, such that the subarray x/yDataDouble
                         // will be the most recent trigger and forward.
@@ -125,7 +125,8 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
 
                     // if no new trigger but _lastTriggerIndex is set,
                     // update triggerIndex to be _lastTriggerIndex.
-                    if (!currentTriggerIndex.HasValue && lastTriggerIndex.HasValue && triggerMode == "Normal Trigger")
+                    if (!currentTriggerIndex.HasValue && lastTriggerIndex.HasValue && 
+                        triggerMode == TriggerMode.Normal_Trigger)
                     {
                         // Subtraction by candidate (0) in full-history mode
                         localTriggerIndex = lastTriggerIndex.Value;

@@ -23,9 +23,8 @@ public interface ITriggerService
 
     /// <summary>
     /// Set trigger mode.
-    /// TODO: Make into ENUM in Models/ rather than string
     /// </summary>
-    string Mode { get; set; }
+    TriggerMode Mode { get; set; }
 
     /// <summary>
     /// Called when the user enables/disables the trigger checkbox.

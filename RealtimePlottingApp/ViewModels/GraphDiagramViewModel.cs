@@ -243,7 +243,12 @@ namespace RealtimePlottingApp.ViewModels
             // Receive notice whenever trigger mode has been updated:
             MessageBus.Current.Listen<string>("SelectedTriggerMode").Subscribe(newMode =>
             {
-                _triggerService.Mode = newMode;
+                _triggerService.Mode = newMode switch
+                {
+                    "Single Trigger" => TriggerMode.Single_Trigger,
+                    "Normal Trigger" => TriggerMode.Normal_Trigger,
+                    _ => _triggerService.Mode // No change.
+                };
             });
             
             // Enable data generator for testing:

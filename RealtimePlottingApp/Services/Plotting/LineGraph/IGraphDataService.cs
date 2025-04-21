@@ -47,5 +47,5 @@ public interface IGraphDataService
     /// subarray for which a trigger has occurred (or -1 if no trigger found)
     /// </summary>
     void GetSubData(out double[] xDataDouble, out double[] yDataDouble, out int localTriggerIndex,
-        int? currentTriggerIndex, int? lastTriggerIndex, string triggerMode);
+        int? currentTriggerIndex, int? lastTriggerIndex, TriggerMode triggerMode);
 }

@@ -15,12 +15,12 @@ public class TriggerService : ITriggerService
     private int _triggerStartIndex = 0; // Represents the start index when trigger was enabled
     private int _lastTriggerIndex = -1; // index of most recent trigger
     private bool _plotTriggerView = false; // true when single trigger has occurred
-    private string _triggerMode = "Single Trigger";
+    private TriggerMode _triggerMode = TriggerMode.Single_Trigger;
 
     public int LastTriggerIndex => _lastTriggerIndex;
     public bool PlotTriggerView => _plotTriggerView;
 
-    public string Mode
+    public TriggerMode Mode
     {
         get => _triggerMode;
         set => _triggerMode = value;
@@ -46,6 +46,7 @@ public class TriggerService : ITriggerService
         _triggerStartIndex = 0;
         _lastTriggerIndex = -1;
         _plotTriggerView = false;
+        MessageBus.Current.SendMessage(!_plotTriggerView, "TrigCheckboxEnabled");
     }
 
     public int CheckForTrigger(GraphDataModel graphData, ObservableCollection<IVariableModel>? plotConfigVariables,
@@ -92,8 +93,11 @@ public class TriggerService : ITriggerService
     {
         switch (_triggerMode)
         {
-            case "Single Trigger":
+            case TriggerMode.Single_Trigger:
+                // Enable TriggerView and notify MessageBus 
                 _plotTriggerView = true;
+                MessageBus.Current.SendMessage(!_plotTriggerView, "TrigCheckboxEnabled");
+                
                 new Thread(() =>
                 {
                     Thread.Sleep(2000);
@@ -111,7 +115,7 @@ public class TriggerService : ITriggerService
                 }).Start();
                 break;
 
-            case "Normal Trigger":
+            case TriggerMode.Normal_Trigger:
                 {
                     lock (graphData)
                     {

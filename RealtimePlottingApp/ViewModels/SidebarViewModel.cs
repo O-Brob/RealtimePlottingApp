@@ -102,6 +102,18 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
         
+        // Trigger level enable checkbox clickable/unclickable
+        private bool _toggleTrigEnabled = true;
+
+        public bool ToggleTrigEnabled
+        {
+            get => _toggleTrigEnabled;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _toggleTrigEnabled, value);
+            }
+        }
+        
         // Trigger Mode combobox dropdown
         private ComboBoxItem? _selectedTriggerMode;
 
@@ -342,6 +354,11 @@ namespace RealtimePlottingApp.ViewModels
                     CommSelectorEnabled = true;
                 }
                 
+            });
+
+            MessageBus.Current.Listen<bool>("TrigCheckboxEnabled").Subscribe(enabledStatus =>
+            {
+                ToggleTrigEnabled = enabledStatus;
             });
         }
         
