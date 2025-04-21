@@ -356,7 +356,8 @@
                         
                         <CheckBox Grid.Row="0" 
                                   Grid.Column="1"
-                                  IsChecked="{Binding TrigChecked}"></CheckBox>
+                                  IsChecked="{Binding TrigChecked}"
+                                  IsEnabled="{Binding ToggleTrigEnabled}"></CheckBox>
                         <ToolTip.Tip>
                             Enable Trigger on Rising Edge
                         </ToolTip.Tip>

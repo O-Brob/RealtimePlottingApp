@@ -102,6 +102,18 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
         
+        // Trigger level enable checkbox clickable/unclickable
+        private bool _toggleTrigEnabled = true;
+
+        public bool ToggleTrigEnabled
+        {
+            get => _toggleTrigEnabled;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _toggleTrigEnabled, value);
+            }
+        }
+        
         // Trigger Mode combobox dropdown
         private ComboBoxItem? _selectedTriggerMode;
 
@@ -292,6 +304,38 @@ namespace RealtimePlottingApp.ViewModels
             // Initialize ICommands
             ConnectButtonCommand = ReactiveCommand.Create(ConnectButtonClicked);
             
+            // Initialize subscriptions to MessageBus traffic
+            MessageBusSubscriptionInit();
+        }
+        
+        // ---------- Private Helper Methods ---------- //
+        // Helper method to validate COM-Port input format (Windows and Linux)
+        private static bool IsValidComPortFormat(string? input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return false;
+            
+            // Windows
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Regex for Windows COM ports (COM1, COM2, etc.)
+                var windowsRegex = new Regex(@"^COM\d+$", RegexOptions.IgnoreCase);
+                return windowsRegex.IsMatch(input);
+            }
+            
+            // Linux
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                // To allow flexibility for different ports (/dev/ttyS*, /dev/pts* virtual port... we just check /dev/)
+                return input.StartsWith("/dev/");
+            }
+            // No supported OS
+            return false;
+        }
+        
+        // =============== Message Bus Initializer =============== //
+        private void MessageBusSubscriptionInit()
+        {
             // Initialize Messagebus for sidebar toggling via HeaderViewModel.
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {
@@ -343,31 +387,11 @@ namespace RealtimePlottingApp.ViewModels
                 }
                 
             });
-        }
-        
-        // ---------- Private Helper Methods ---------- //
-        // Helper method to validate COM-Port input format (Windows and Linux)
-        private static bool IsValidComPortFormat(string? input)
-        {
-            if (string.IsNullOrEmpty(input))
-                return false;
-            
-            // Windows
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+
+            MessageBus.Current.Listen<bool>("TrigCheckboxEnabled").Subscribe(enabledStatus =>
             {
-                // Regex for Windows COM ports (COM1, COM2, etc.)
-                var windowsRegex = new Regex(@"^COM\d+$", RegexOptions.IgnoreCase);
-                return windowsRegex.IsMatch(input);
-            }
-            
-            // Linux
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                // To allow flexibility for different ports (/dev/ttyS*, /dev/pts* virtual port... we just check /dev/)
-                return input.StartsWith("/dev/");
-            }
-            // No supported OS
-            return false;
+                ToggleTrigEnabled = enabledStatus;
+            });
         }
         
     }

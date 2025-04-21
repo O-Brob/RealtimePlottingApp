@@ -23,6 +23,35 @@ namespace RealtimePlottingApp.ViewModels
         // The constructor
         public FooterViewModel()
         {
+            MessageBusSubscriptionInit();
+            
+            // Initialize ICommands
+            OnGithubClick = ReactiveCommand.Create(OpenGithubRepo);
+        }
+        
+        // ---------- ICommand properties + methods for data binding ---------- //
+        public ICommand OnGithubClick { get; }
+
+        private static void OpenGithubRepo()
+        {
+            const string url = "https://github.com/O-Brob/RealtimePlottingApp";
+            try
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("An error occured while opening the Github repository: " + e);
+            }
+        }
+        
+        // =============== Message Bus Initializer =============== //
+        private void MessageBusSubscriptionInit()
+        {
             // --- Initialize MessageBus for incoming messages --- //
             MessageBus.Current.Listen<string>().Subscribe((msg) =>
             {
@@ -62,29 +91,6 @@ namespace RealtimePlottingApp.ViewModels
                     CommInterfaceStatus = $"CAN Error: {msg[9..]}";
                 }
             });
-            
-            // Initialize ICommands
-            OnGithubClick = ReactiveCommand.Create(OpenGithubRepo);
-        }
-        
-        // ---------- ICommand properties + methods for data binding ---------- //
-        public ICommand OnGithubClick { get; }
-
-        private static void OpenGithubRepo()
-        {
-            const string url = "https://github.com/O-Brob/RealtimePlottingApp";
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = url,
-                    UseShellExecute = true
-                });
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("An error occured while opening the Github repository: " + e);
-            }
         }
         
     }
