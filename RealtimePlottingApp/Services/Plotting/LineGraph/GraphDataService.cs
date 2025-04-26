@@ -14,10 +14,10 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
         private bool _plotFullHistory; // False default
         private double _windowWidth = 75; // X-Axis unit width (how many points to show) 
 
-        public GraphDataService()
+        public GraphDataService(GraphDataModel graphData)
         {
             // Create a GraphDataModel to hold graph data.
-            _graphData = new GraphDataModel();
+            _graphData = graphData;
         }
 
         public GraphDataModel GraphData => _graphData;

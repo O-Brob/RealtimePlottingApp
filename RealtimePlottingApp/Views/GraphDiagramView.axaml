@@ -20,8 +20,8 @@
             <RowDefinition Height="{Binding Row2Height}" />
         </Grid.RowDefinitions>
 
-        <sp:AvaPlot x:Name="Plot" Grid.Row="0" IsVisible="{Binding Plot1Visible}" />
-        <sp:AvaPlot x:Name="Plot2" Grid.Row="1" IsVisible="{Binding Plot2Visible}" />
+        <sp:AvaPlot x:Name="LPlot" Grid.Row="0" IsVisible="{Binding Plot1Visible}" />
+        <sp:AvaPlot x:Name="BPlot" Grid.Row="1" IsVisible="{Binding Plot2Visible}" />
     </Grid>
 
     
