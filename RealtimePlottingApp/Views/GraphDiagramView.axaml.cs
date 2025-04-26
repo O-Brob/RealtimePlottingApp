@@ -27,7 +27,8 @@ public partial class GraphDiagramView : UserControl
         // (see: https://scottplot.net/faq/mvvm/)
         if (DataContext is GraphDiagramViewModel viewModel)
         {
-            viewModel.LinePlot = this.Find<AvaPlot>("Plot");
+            viewModel.LinePlot = this.Find<AvaPlot>("LPlot");
+            viewModel.BlockPlot = this.Find<AvaPlot>("BPlot");
             
             // Initialize mouse event handlers after setting LinePlot
             if (viewModel.LinePlot == null) return;

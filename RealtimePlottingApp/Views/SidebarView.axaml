@@ -232,7 +232,8 @@
                                   SelectedItem="{Binding SelectedDataSize}"
                                   MaxDropDownHeight="100"
                                   HorizontalAlignment="Stretch"
-                                  Margin="0,5,0,0">
+                                  Margin="0,5,0,0"
+                                  IsEnabled="{Binding CommSelectorEnabled}">
                             <ToolTip.Tip>
                                 The bit-size of the data variables to be received from the UART.
                                 Each unique variable is expected to be of this data size.

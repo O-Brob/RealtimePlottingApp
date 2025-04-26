@@ -10,6 +10,7 @@ using RealtimePlottingApp.Models;
 using RealtimePlottingApp.Services.CAN;
 using RealtimePlottingApp.Services.ConfigParsers;
 using RealtimePlottingApp.Services.DataChannels;
+using RealtimePlottingApp.Services.Plotting.BlockDiagram;
 using RealtimePlottingApp.Services.Plotting.LineGraph;
 using RealtimePlottingApp.Services.UART;
 using ScottPlot.Avalonia;
@@ -28,6 +29,8 @@ namespace RealtimePlottingApp.ViewModels
         private readonly IGraphDataService _graphDataService;
         private readonly ITriggerService _triggerService;
         private readonly IPlotUiService _plotUiService;
+        private readonly IBlockDataService _blockDataService;
+        private readonly IBlockUiService _blockUiService;
         
         // --- UI Timers --- //
         private readonly Timer _uiUpdateTimer;
@@ -39,22 +42,36 @@ namespace RealtimePlottingApp.ViewModels
             set => _plotUiService.LinePlot = value;
         }
 
+        public AvaPlot? BlockPlot
+        {
+            get => _blockUiService.BlockPlot;
+            set => _blockUiService.BlockPlot = value;
+        }
+
         // --- Plotting modes & restraints --- //
         private const bool _enableDataGeneratorTesting = false;
 
         // =============== Constructor =============== //
         public GraphDiagramViewModel()
         {
-            // Initialize services
+            GraphDataModel dataModelForDepInjection= new GraphDataModel();
+            // === Initialize services === //
             _configParser = new ConfigParser();
-            _graphDataService = new GraphDataService();
+            // LineGraph Services
+            _graphDataService = new GraphDataService(dataModelForDepInjection);
             _triggerService = new TriggerService();
             _plotUiService = new PlotUiService();
             _plotUiService.LinePlot = LinePlot;
+            
+            // BlockDiagram Services
+            _blockDataService = new BlockDataService(dataModelForDepInjection);
+            _blockUiService = new BlockUiService();
+            _blockUiService.BlockPlot = BlockPlot;
 
-            // UI update timer
+            // === UI update timer === //
             _uiUpdateTimer = new Timer(100); // ms between UI updates
-            _uiUpdateTimer.Elapsed += UpdatePlot;
+            _uiUpdateTimer.Elapsed += UpdateLinePlot;
+            _uiUpdateTimer.Elapsed += UpdateBlockPlot;
             
             // Initialize subscriptions for incoming message bus messages.
             MessageBusSubscriptionInit();
@@ -71,7 +88,7 @@ namespace RealtimePlottingApp.ViewModels
         }
         
         // =============== Graph Update Loop =============== //
-        private void UpdatePlot(object? sender, ElapsedEventArgs? e)
+        private void UpdateLinePlot(object? sender, ElapsedEventArgs? e)
         {
             // Trigger index indicating whether trigger has occured.
             int triggerIndex = _triggerService.CheckForTrigger(
@@ -107,6 +124,15 @@ namespace RealtimePlottingApp.ViewModels
             {
                 _uiUpdateTimer.Stop();
             }
+        }
+
+        private void UpdateBlockPlot(object? sender, ElapsedEventArgs? e)
+        {
+            // Extract presentable data values
+            double[] extractedVals = _blockDataService.ExtractVariableValues();
+            
+            // Provide presentable data values for UI updating
+            _blockUiService.UpdateBlockUI(extractedVals);
         }
         
         // =============== Handle graph visibility =============== //
@@ -147,7 +173,9 @@ namespace RealtimePlottingApp.ViewModels
                             _dataChannel?.Disconnect(); // Ensure no channel exists for any medium
                             _triggerService.ResetTrigger();
                             _graphDataService.ClearData(); // Clear graph data to plot new connection's data
+                            _blockDataService.ClearData();
                             _graphDataService.UniqueVars = uniqueVars; // Set number of unique variables
+                            _blockDataService.UniqueVars = _graphDataService.UniqueVars;
                             _dataChannel = new UartDataChannel( // Set data channel to UART
                                 new UARTSerialReader(), comPort, baudRate, dataSize, _graphDataService.GraphData
                             );
@@ -201,6 +229,7 @@ namespace RealtimePlottingApp.ViewModels
                             _graphDataService.UniqueVars = new HashSet<char>(
                                 canDataPayloadMask.Where(c => char.IsDigit(c))
                             ).Count;
+                            _blockDataService.UniqueVars = _graphDataService.UniqueVars;
                             
                             _dataChannel.Connect();
 
@@ -278,6 +307,7 @@ namespace RealtimePlottingApp.ViewModels
         
                     _previousVars = varList;
                     _plotUiService.PlotConfigVariables = varList;
+                    _blockUiService.PlotConfigVariables = _plotUiService.PlotConfigVariables;
         
                     // Subscribe to each variable's PropertyChanged event.
                     foreach (var variable in varList)
@@ -295,8 +325,12 @@ namespace RealtimePlottingApp.ViewModels
                             e.PropertyName == nameof(IVariableModel.Name))
                         {
                             // Request a UI update if a variable property changes in history mode,
-                            // since the active UI timer is off and does not handle it.
-                            Dispatcher.UIThread.InvokeAsync(() => UpdatePlot(null, null));
+                            // since the active UI timer could be off and not handle it.
+                            Dispatcher.UIThread.InvokeAsync(() =>
+                            {
+                                UpdateLinePlot(null, null);
+                                UpdateBlockPlot(null, null);
+                            });
                         }
                     }
                 });
