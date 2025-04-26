@@ -10,21 +10,38 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph;
 
 public class PlotUiService : IPlotUiService
 {
-    // --- Graph element references & configuration --- //
-    public AvaPlot? LinePlot { get; set; }
-    public ObservableCollection<IVariableModel>? PlotConfigVariables { get; set; }
-    public bool PlotFullHistory { get; set; }
-    public double WindowWidth { get; set; } = 75;
-    public bool LockTriggerLevel { get; set; } = false;
-
+    // --- Private instance variables --- //
     // Holds trigger level when enabled, else null
     private HorizontalLine? _triggerLevel;
+
+    private AvaPlot? _linePlot;
 
     // Palette for predictable & consistent color assignment regardless of Trigger lines, etc.
     // Uses a 25-color palette adapted from Tsitsulin's 12-color xgfs palette
     // Aims to help distinguishing the colors for people with color vision deficiency and when printed B&W.
     // https://tsitsul.in/blog/coloropt/
     private readonly IPalette _palette = new ScottPlot.Palettes.Tsitsulin();
+    
+    // --- Graph element references & configuration --- //
+    public AvaPlot? LinePlot
+    {
+        get => _linePlot;
+        set
+        {
+            _linePlot = value;
+            _linePlot?.Plot.XLabel("Timestamp");
+            _linePlot?.Plot.YLabel("Value");
+            
+            if (_linePlot == null) return;
+            _linePlot.Plot.Title("Line Graph");
+            _linePlot.Plot.Axes.Bottom.Label.Bold = false;
+            _linePlot.Plot.Axes.Left.Label.Bold = false;
+        }
+    }
+    public ObservableCollection<IVariableModel>? PlotConfigVariables { get; set; }
+    public bool PlotFullHistory { get; set; }
+    public double WindowWidth { get; set; } = 75;
+    public bool LockTriggerLevel { get; set; } = false;
 
     public HorizontalLine? TriggerLevel
     {

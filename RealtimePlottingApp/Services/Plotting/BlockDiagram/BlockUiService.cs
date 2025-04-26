@@ -16,11 +16,26 @@ public class BlockUiService :IBlockUiService
     // https://tsitsul.in/blog/coloropt/
     private readonly IPalette _palette = new ScottPlot.Palettes.Tsitsulin();
     private double maxValueY;
+    private AvaPlot? _blockPlot;
     
     // ===== Constructor ===== //
     
     // ===== API Methods ===== //
-    public AvaPlot? BlockPlot { get; set; }
+    public AvaPlot? BlockPlot
+    {
+        get => _blockPlot;
+        set
+        {
+            _blockPlot = value;
+            _blockPlot?.Plot.XLabel("Variable");
+            _blockPlot?.Plot.YLabel("Value");
+            
+            if (_blockPlot == null) return;
+            _blockPlot.Plot.Title("Block Diagram");
+            _blockPlot.Plot.Axes.Bottom.Label.Bold = false;
+            _blockPlot.Plot.Axes.Left.Label.Bold = false;
+        }
+    }
     public ObservableCollection<IVariableModel>? PlotConfigVariables { get; set; }
         
     public void UpdateBlockUI(double[] data)

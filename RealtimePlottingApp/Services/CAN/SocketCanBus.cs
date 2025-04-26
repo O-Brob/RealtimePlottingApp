@@ -45,7 +45,7 @@ namespace RealtimePlottingApp.Services.CAN
         
         // Stopwatch for timestamping messages.
         private readonly Stopwatch _stopwatch;
-        private const int msInterval = 10; // Invoked resolution of timestamps.
+        private const int msInterval = 1; // Invoked resolution of timestamps.
 
         public SocketCanBus()
         {
