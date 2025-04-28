@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Linq;
 using System.Text.Json.Nodes;
 
@@ -19,7 +20,9 @@ public class ConfigService : IConfigService
     public static ConfigService Instance { get; } = new ConfigService(); // Singleton!
 
     // ========== API Methods ========== //
-    public void AddToConfig(string key, object value)
+    public string FilePath { get; set; } = "";
+    
+    public void AddToConfig(string key, object? value)
     {
         // Find old entry at given key if it already exists and remove it
         JsonObject? oldKeyVal = _jsonArray
@@ -41,18 +44,23 @@ public class ConfigService : IConfigService
         _jsonArray.Add(entry);
     }
 
-    public void ExportConfig(string path)
+    public void ExportConfig()
     {
+        if (FilePath.Equals("")) throw new 
+            InvalidOperationException("InvalidOperationException: Export path is not set.");
+        
         // Export as file at the given path.
-        File.WriteAllText(path, _jsonArray.ToString());
+        File.WriteAllText(FilePath, _jsonArray.ToString());
     }
     
-    public T? LoadConfig<T>(string path, string key)
+    public T? LoadConfig<T>(string key)
     {
+        if (FilePath.Equals("")) throw new FileNotFoundException();
+        
         // Load the configuration and search for the provided key.
         JsonObject? entry = Instance
             // Loads JsonArray from file.
-            .LoadFullConfig(path)
+            .LoadFullConfig(FilePath)
             // Make enumerator over all json objects.
             .OfType<JsonObject>()
             // Get the first Json Object with the given key.

@@ -11,22 +11,25 @@ public interface IConfigService
     /// </summary>
     /// <param name="key">The key representing the stored value</param>
     /// <param name="value">The value acoompanied with the key</param>
-    void AddToConfig(string key, object value);
+    void AddToConfig(string key, object? value);
+
+    /// <summary>
+    /// Holds the path to be used for both exporting and loading config files.
+    /// </summary>
+    string FilePath { get; set; }
 
     /// <summary>
     /// Try to load a value of type T from from the config
-    /// file at the given path using the provided key.
+    /// file at the provided path in FilePath using the provided key.
     /// </summary>
-    /// <param name="path">The path to load the config value from</param>
     /// <param name="key">The key representing the value to load</param>
     /// <typeparam name="T">The expected type of the value accompanying `key`</typeparam>
     /// <returns>The value accompanying they provided key, in the file at the provided path.</returns>
-    T? LoadConfig<T>(string path, string key);
+    T? LoadConfig<T>(string key);
     
     /// <summary>
     /// Exports the current local representation
-    /// of a configuration as a file.
+    /// of a configuration as a file to FilePath.
     /// </summary>
-    /// <param name="path">The path to export the configuration file</param>
-    void ExportConfig(string path);
+    void ExportConfig();
 }
