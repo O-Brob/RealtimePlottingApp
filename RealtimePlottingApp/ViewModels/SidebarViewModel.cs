@@ -144,6 +144,14 @@ namespace RealtimePlottingApp.ViewModels
         }
 
         // Bit Rate
+        private int _bitRateDropdownIndex;
+
+        public int BitRateDropdownIndex
+        {
+            get => _bitRateDropdownIndex;
+            set => this.RaiseAndSetIfChanged(ref _bitRateDropdownIndex, value);
+        }
+        
         private ComboBoxItem? _selectedBitRate;
 
         public ComboBoxItem? SelectedBitRate
@@ -244,6 +252,14 @@ namespace RealtimePlottingApp.ViewModels
         }
         
         // Payload data size Input
+        private int _dataSizeDropdownIndex;
+
+        public int DataSizeDropdownIndex
+        {
+            get => _dataSizeDropdownIndex;
+            set => this.RaiseAndSetIfChanged(ref _dataSizeDropdownIndex, value);
+        }
+        
         private ComboBoxItem? _selectedDataSize;
 
         public ComboBoxItem? SelectedDataSize
@@ -391,6 +407,102 @@ namespace RealtimePlottingApp.ViewModels
             MessageBus.Current.Listen<bool>("TrigCheckboxEnabled").Subscribe(enabledStatus =>
             {
                 ToggleTrigEnabled = enabledStatus;
+            });
+
+            MessageBus.Current.Listen<string>("SaveConfigRequest").Subscribe(_ =>
+            {
+                // Save CAN Configuration:
+                ConfigManager.AddToConfig("CanInterface", CanInterfaceInput);
+                ConfigManager.AddToConfig("BitRate", BitRateDropdownIndex);
+                ConfigManager.AddToConfig("CanIdFilter", CanIdFilter);
+                ConfigManager.AddToConfig("CanDataMask", CanDataMask);
+                
+                // Save UART Configuration:
+                ConfigManager.AddToConfig("ComPort", ComPortInput);
+                ConfigManager.AddToConfig("BaudRate", BaudRateInput);
+                ConfigManager.AddToConfig("UniqueVars", UniqueVariableCount);
+                ConfigManager.AddToConfig("PayloadDataSize", DataSizeDropdownIndex);
+            });
+            
+            MessageBus.Current.Listen<string>("LoadConfigRequest").Subscribe(_ =>
+            {
+                // Only proceed if we are not currently connected to a comm interface:
+                if (_isConnected) return;
+                
+                // Load CAN Configuration:
+                try
+                {
+                    CanInterfaceInput = ConfigManager.LoadConfig<string?>("CanInterface");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading CAN Interface: {e.Message}");
+                }
+
+                try
+                {
+                    BitRateDropdownIndex = ConfigManager.LoadConfig<int>("BitRate");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading Bit rate: {e.Message}");
+                }
+                
+                try
+                {
+                    CanIdFilter = ConfigManager.LoadConfig<int?>("CanIdFilter");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading CAN ID Filter: {e.Message}");
+                }
+                
+                try
+                {
+                    string? datamask = ConfigManager.LoadConfig<string>("CanDataMask");
+                    if (datamask != null)
+                        CanDataMask = datamask;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading CAN Data Variable Mask: {e.Message}");
+                }
+                
+                // Load UART Configuration:
+                try
+                {
+                    ComPortInput = ConfigManager.LoadConfig<string?>("ComPort");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading COM Port: {e.Message}");
+                }
+                try
+                {
+                    BaudRateInput = ConfigManager.LoadConfig<int?>("BaudRate");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading Baud rate: {e.Message}");
+                }
+                
+                try
+                {
+                    UniqueVariableCount = ConfigManager.LoadConfig<int?>("UniqueVars");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading Unique variables: {e.Message}");
+                }
+                
+                try
+                {
+                    DataSizeDropdownIndex = ConfigManager.LoadConfig<int>("PayloadDataSize");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Error loading Payload data size: {e.Message}");
+                }
             });
         }
         
