@@ -10,7 +10,8 @@
         ExtendClientAreaToDecorationsHint="True"
         x:Class="RealtimePlottingApp.Views.MainWindow"
         x:DataType="viewmodel:MainWindowViewModel"
-        Title="Realtime Plotting App">
+        Title="Realtime Plotting App"
+        Icon="avares://RealtimePlottingApp/Assets/ApplicationIcon.ico">
 
     <!-- Set Data Context -->
     <Window.DataContext>

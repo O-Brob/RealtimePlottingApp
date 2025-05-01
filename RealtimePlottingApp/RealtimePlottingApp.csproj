@@ -1,5 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Description>Cross-platform CAN and UART data analysis tool for Linux and Windows. 
+            Provides high-performance interactive real-time graphing for efficient monitoring 
+            and troubleshooting of embedded system communication.</Description>
+        <PackageIconUrl>Assets\ApplicationIcon.ico</PackageIconUrl>
+        <ApplicationIcon>Assets\ApplicationIcon.ico</ApplicationIcon>
         <OutputType>WinExe</OutputType>
         <TargetFramework>net9.0</TargetFramework>
         <Nullable>enable</Nullable>
