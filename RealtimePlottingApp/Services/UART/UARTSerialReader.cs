@@ -49,7 +49,7 @@ public class UARTSerialReader : ISerialReader
             _ => 1 // Assume 8bit data if payloadDataSize was somehow messed up
         };
 
-        _packageSize = _dataPayloadBytes + 2; // Package size including timestamp (16bits)
+        _packageSize = _dataPayloadBytes + 1; // Package size including timestamp (8bits)
         try
         {
             // Create the serial port with manually set buffer sizes (increasing read buffer) and open the port. 
@@ -145,48 +145,48 @@ public class UARTSerialReader : ISerialReader
 
             try
             {
-                    // BeginRead: "Begins an asynchronous read operation." --> this creates the asynchronicity
-                    _serialPort.BaseStream.BeginRead(_readBuffer, 0, _readBuffer.Length, ar =>
+                // BeginRead: "Begins an asynchronous read operation." --> this creates the asynchronicity
+                _serialPort.BaseStream.BeginRead(_readBuffer, 0, _readBuffer.Length, ar =>
+                {
+                    // Ensure reading is still valid before the async reads as well
+                    if (!_isReading || _serialPort == null || !_serialPort.IsOpen)
+                        return;
+                    
+                    try
                     {
-                        // Ensure reading is still valid before the async reads as well
-                        if (!_isReading || _serialPort == null || !_serialPort.IsOpen)
-                            return;
-                        
-                        try
+                        int actualLength = _serialPort.BaseStream.EndRead(ar);
+                        if (actualLength > 0)
                         {
-                            int actualLength = _serialPort.BaseStream.EndRead(ar);
-                            if (actualLength > 0)
+                            // Append the newly read bytes to our internal buffer.
+                            lock (_receiveBuffer)
                             {
-                                // Append the newly read bytes to our internal buffer.
-                                lock (_receiveBuffer)
+                                for (int i = 0; i < actualLength; i++)
                                 {
-                                    for (int i = 0; i < actualLength; i++)
-                                    {
-                                        _receiveBuffer.Add(_readBuffer[i]);
-                                    }
+                                    _receiveBuffer.Add(_readBuffer[i]);
                                 }
-
-                                // Process complete packages.
-                                ProcessReceiveBuffer();
                             }
+                            
+                            // Process complete packages.
+                            ProcessReceiveBuffer();
                         }
-                        catch (IOException e)
-                        {
-                            Console.WriteLine("I/O Exception during read: " + e.Message);
-                            StopSerial();
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine("Unexpected exception during read: " + e.Message);
-                            StopSerial();
-                        }
-
-                        // Kick off a new async read of BaseStream before terminating
-                        if (_isReading)
-                        {
-                            kickoffRead?.Invoke();
-                        }
-                    }, null);
+                    }
+                    catch (IOException e)
+                    {
+                        Console.WriteLine("I/O Exception during read: " + e.Message);
+                        StopSerial();
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Unexpected exception during read: " + e.Message);
+                        StopSerial();
+                    }
+                    
+                    // Kick off a new async read of BaseStream before terminating
+                    if (_isReading)
+                    {
+                        kickoffRead?.Invoke();
+                    }
+                }, null);
             }
             catch (Exception e)
             {
@@ -232,15 +232,9 @@ public class UARTSerialReader : ISerialReader
                     _ => 0
                 };
 
-                // Parse 16-bit timestamp.
-                // Timestamp is transmitted as 2 bytes in big-endian order.
-                byte[] timestampBytes = new byte[2];
-                Array.Copy(packageBytes, _dataPayloadBytes, timestampBytes, 0, 2);
-                if (BitConverter.IsLittleEndian)
-                {
-                    Array.Reverse(timestampBytes);
-                }
-                ushort timeStamp = BitConverter.ToUInt16(timestampBytes, 0);
+                // Parse 8-bit timestamp.
+                byte tsByte = packageBytes[_dataPayloadBytes];
+                ushort timeStamp = tsByte;
 
                 UARTTimestampedData package = new UARTTimestampedData
                 {

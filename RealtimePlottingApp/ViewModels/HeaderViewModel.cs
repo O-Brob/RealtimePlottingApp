@@ -67,7 +67,8 @@ namespace RealtimePlottingApp.ViewModels
 
                     // If a "save file" was decided, set the path to it, otherwise fallback.
                     string? filePath = file?.TryGetLocalPath();
-                    ConfigManager.FilePath = filePath ?? "appconfig.json"; // Default fallback
+                    if (filePath != null) ConfigManager.FilePath = filePath;
+                    else return; // Operation cancelled by user
                 }
                 else
                 {
@@ -124,7 +125,11 @@ namespace RealtimePlottingApp.ViewModels
                     if (files.Count > 0)
                     {
                         string? filePath = files[0].TryGetLocalPath();
-                        ConfigManager.FilePath = filePath ?? "appconfig.json"; // Fallback
+                        if (filePath != null) ConfigManager.FilePath = filePath;
+                    }
+                    else
+                    {
+                        return; // Operation is cancelled by user
                     }
                 }
                 else
