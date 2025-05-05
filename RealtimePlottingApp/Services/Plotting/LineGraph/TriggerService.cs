@@ -54,6 +54,9 @@ public class TriggerService : ITriggerService
     {
         if (triggerLevel != null)
         {
+            // Calculate start index to be used in loop below
+            int startIndex = Math.Max(_triggerStartIndex - uniqueVars, 0);
+
             // Loop over each variable to check trigger for each variable individually
             for (int v = 0; v < uniqueVars; v++)
             {
@@ -61,27 +64,22 @@ public class TriggerService : ITriggerService
                 if (plotConfigVariables != null && v < plotConfigVariables.Count && plotConfigVariables[v].IsTriggerable == false)
                     continue;
 
-                // Filter only Y-values for variable v since triggerStartIndex - uniqueVars (to ensure we don't miss a rising edge)
-                // Additionally create simple data tuples for yData which holds a global index and valeue.
-                var yData = graphData.YData
-                    .Skip(Math.Max(_triggerStartIndex - uniqueVars, 0))
-                    .Select((val, idx) => new { GlobalIdx = Math.Max(_triggerStartIndex - uniqueVars, 0) + idx, Value = val })
-                    .Where(x => x.GlobalIdx % uniqueVars == v)
-                    .ToList();
+                // Loop over Y-data as IEnumberable after filtering for variable v.
+                var prevValue = uint.MinValue; // Default to prevent issue when checking first value.
 
-                for (int i = 1; i < yData.Count; i++)
+                foreach (var data in graphData.YData
+                             .Skip(startIndex)
+                             .Select((val, index) => new { GlobalIdx = startIndex + index, Value = val })
+                             .Where(x => x.GlobalIdx % uniqueVars == v))
                 {
-                    uint prev = yData[i - 1].Value;
-                    uint curr = yData[i].Value;
-
-                    if (curr > triggerLevel.Y &&
-                        curr > prev &&
-                        prev < triggerLevel.Y)
+                    if (prevValue < triggerLevel.Y && data.Value > triggerLevel.Y && prevValue < data.Value)
                     {
-                        // Use the global index of the current point
-                        _lastTriggerIndex = yData[i].GlobalIdx;
+                        _lastTriggerIndex = data.GlobalIdx;
                         return _lastTriggerIndex;
                     }
+
+                    // Update previous value for next comparison
+                    prevValue = data.Value;
                 }
             }
         }
