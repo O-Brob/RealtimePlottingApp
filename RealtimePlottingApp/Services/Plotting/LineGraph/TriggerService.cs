@@ -65,21 +65,20 @@ public class TriggerService : ITriggerService
                     continue;
 
                 // Loop over Y-data as IEnumberable after filtering for variable v.
-                var prevValue = uint.MinValue; // Default to prevent issue when checking first value.
 
                 foreach (var data in graphData.YData
                              .Skip(startIndex)
                              .Select((val, index) => new { GlobalIdx = startIndex + index, Value = val })
                              .Where(x => x.GlobalIdx % uniqueVars == v))
                 {
+                    // Fetch variable before data, to compare with.
+                    uint prevValue = graphData.YData[data.GlobalIdx - uniqueVars];
+                    
                     if (prevValue < triggerLevel.Y && data.Value > triggerLevel.Y && prevValue < data.Value)
                     {
                         _lastTriggerIndex = data.GlobalIdx;
                         return _lastTriggerIndex;
                     }
-
-                    // Update previous value for next comparison
-                    prevValue = data.Value;
                 }
             }
         }

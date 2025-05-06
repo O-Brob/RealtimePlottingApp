@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using RealtimePlottingApp.Models;
 
@@ -58,6 +59,12 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
             lock (_graphData)
             {
                 int totalPoints = _graphData.XData.Count;
+                
+                // Simple check whether duplicates exist, to help deciding normal trigger window size adjustments.
+                int expected = 100 / _uniqueVars;
+                int actual = new HashSet<uint>(_graphData.XData.Skip(totalPoints - 100)).Count;
+                bool dupesExist = actual < expected * 0.85 || actual > expected * 1.15;
+                
                 // Determine candidate for where to start plotting data from on this UI update.
                 int candidate = 0;
 
@@ -120,7 +127,9 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
 
                         case TriggerMode.Normal_Trigger:
                             // Ensure candidate is always >= 0. _uniqueVars+3 for extra variable headroom.
-                            candidate = Math.Max(currentTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars + 3)), 0);
+                            candidate = !dupesExist 
+                                ? Math.Max(currentTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 2)), 0) 
+                                : Math.Max(currentTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 8)), 0);
                             // Since trigger occured and we do not use full array,
                             // adjust trigger index relative to the subarray we provide.
                             localTriggerIndex = currentTriggerIndex.Value - candidate;
@@ -138,7 +147,9 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
                     {
                         // Set candidate to the most recent trigger, such that the subarray x/yDataDouble
                         // will be the most recent trigger and forward. _uniqueVars+3 for extra variable headroom.
-                        candidate = Math.Max(lastTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars + 3)), 0);
+                        candidate = !dupesExist 
+                            ? Math.Max(lastTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 2)), 0) 
+                            : Math.Max(lastTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 8)), 0);
                         // set triggerindex relative to the subarray from the last trigger.
                         localTriggerIndex = lastTriggerIndex.Value - candidate;
 
@@ -146,7 +157,11 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
                         startIndex = candidate - (candidate % _uniqueVars);
                         
                         // Limit the size of the plotted slice to a smaller window for performance
-                        int maxPointsToPlot = 2 * (int)_windowWidth * (_uniqueVars + 3);
+                        int maxPointsToPlot;
+                        if (!dupesExist)
+                            maxPointsToPlot = 2 * (int)_windowWidth * (_uniqueVars * 2);
+                        else
+                            maxPointsToPlot = 2 * (int)_windowWidth * (_uniqueVars * 8);
                         endIndex = Math.Min(startIndex + maxPointsToPlot, totalPoints);
                         endIndex -= endIndex % _uniqueVars; // Align to variable interleaving.
                     }

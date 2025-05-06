@@ -36,7 +36,17 @@ public class BlockUiService :IBlockUiService
             _blockPlot.Plot.Axes.Left.Label.Bold = false;
         }
     }
-    public ObservableCollection<IVariableModel>? PlotConfigVariables { get; set; }
+
+    private ObservableCollection<IVariableModel>? _plotConfigVariables;
+    public ObservableCollection<IVariableModel>? PlotConfigVariables
+    {
+        get => _plotConfigVariables;
+        set
+        {
+            _plotConfigVariables = value;
+            maxValueY = 0;
+        }
+    }
         
     public void UpdateBlockUI(double[] data)
     {
