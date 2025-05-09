@@ -4,7 +4,7 @@
 [![.NET](https://img.shields.io/badge/.NET-9.0-blueviolet)](https://dotnet.microsoft.com/en-us/download/dotnet/9.0)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux-d069b4)](#)
 [![AvaloniaUI](https://img.shields.io/badge/UI-AvaloniaUI-blue)](https://avaloniaui.net)
-[![Release](https://img.shields.io/github/v/release/O-Brob/RealtimePlottingApp?include_prereleases)](https://github.com/O-Brob/RealtimePlottingApp/releases)
+[![Release](https://img.shields.io/github/v/release/O-Brob/RealtimePlottingApp?color=dark-green&include_prereleases)](https://github.com/O-Brob/RealtimePlottingApp/releases)
 
 ## Overview
 
