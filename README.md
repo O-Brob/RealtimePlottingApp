@@ -32,7 +32,7 @@ Note that the required LL drivers and STM32 firmware are not included and must b
 
 - 🖥️ **Multi‑Platform CAN/UART Support**  
   - SocketCAN interface on Linux
-  - Peak Systems CAN drivers on Windows
+  - Peak Systems CAN on Windows ([PEAK-System CAN drivers](https://www.peak-system.com/Drivers.523.0.html?&L=1) required)
   - C# SerialPort w/ BaseStream for efficient UART
 
 - 📈 **Real‑Time Plotting**  
@@ -95,8 +95,8 @@ Self‑contained binaries for the latest release.
 
 | Platform       | Download                                                                 |
 | -------------- | ------------------------------------------------------------------------ |
-| Windows x64    | Not available yet. |
-| Linux x64      | Not available yet. |
+| Windows x64    | [Download v1.0.0 (.zip)](https://github.com/O-Brob/RealtimePlottingApp/releases/download/v1.0.0/RealtimePlottingApp-v1.0.0-win-x64.zip) |
+| Linux x64      | [Download v1.0.0 (.tar.gz)](https://github.com/O-Brob/RealtimePlottingApp/releases/download/v1.0.0/RealtimePlottingApp-v1.0.0-linux.x64.tar.gz) |
 
 ---
 
