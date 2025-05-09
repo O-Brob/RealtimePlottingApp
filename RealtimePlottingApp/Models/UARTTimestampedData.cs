@@ -11,7 +11,7 @@ public struct UARTTimestampedData
     public uint Data { get; set; }
     
     /// <summary>
-    /// A 16-bit timestamp which accompanies the data.
+    /// A timestamp which accompanies the data.
     /// </summary>
     public ushort Time { get; set; }
 }

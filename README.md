@@ -8,7 +8,13 @@
 
 ## Overview
 
-RealtimePlottingApp is a Linux & Windows application written in C# for real-time plotting of CAN and UART data. It is designed for engineers and developers working with embedded systems, and provides an intuitive interface to visualize data streams with high performance and low latency.
+RealtimePlottingApp is a Linux & Windows application written in C# for real-time plotting of CAN and UART data. 
+It is designed for engineers and developers working with embedded systems, 
+and provides an intuitive interface to visualize data streams with high performance and low latency.
+
+The included UART C library is an efficient solution for STM32 microcontrollers.
+It works seamlessly with the C# application to enable timestamped transmission of data variables.
+Note that the required LL drivers and STM32 firmware are not included and must be installed separately to use this library.
 
 ---
 
@@ -30,9 +36,9 @@ RealtimePlottingApp is a Linux & Windows application written in C# for real-time
   - C# SerialPort w/ BaseStream for efficient UART
 
 - 📈 **Real‑Time Plotting**  
-  - Live CAN & UART data streams with sub‑millisecond latency
+  - Live CAN & UART data reading streams with sub‑millisecond latency
   - CAN data is timestamped at receival, to allow connecting to a can-bus without extra configuration
-  - UART data is timestamped at transmission using the provided C library, to allow higher accuracy
+  - UART data is timestamped at transmission using the format in the provided C library, to allow higher accuracy
   - Supports plotting of multiple variables at once
   - Threaded architecture for smooth rendering at high data rates
 

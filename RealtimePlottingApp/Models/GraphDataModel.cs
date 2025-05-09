@@ -17,7 +17,7 @@ public class GraphDataModel
     // _overflowAdd holds the total offset added to the raw timestamp.
     private uint _lastRawTimestamp;
     private uint _overflowAdd;
-    private uint _xValBitSize = 16; // 16-bit timestamps as default.
+    private uint _xValBitSize = 8; // 8-bit timestamps as default.
 
     /// <summary>
     /// Variable defining bit-size of the X-Axis values,

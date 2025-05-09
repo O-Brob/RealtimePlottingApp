@@ -40,7 +40,11 @@ namespace RealtimePlottingApp.ViewModels
         public bool CommSelectorEnabled
         {
             get => _commSelectorEnabled;
-            set => this.RaiseAndSetIfChanged(ref _commSelectorEnabled, value);
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _commSelectorEnabled, value);
+                this.RaisePropertyChanged(nameof(CanBitrateEnabled));
+            }
         }
 
         // Data binding for Conditional CAN/UART elements
@@ -173,7 +177,8 @@ namespace RealtimePlottingApp.ViewModels
             }
         }
 
-        public static bool CanBitrateEnabled => OperatingSystem.IsWindows(); // On Linux, we use SocketCan, not UI.
+        // On Linux, we use SocketCan, not UI.
+        public bool CanBitrateEnabled => OperatingSystem.IsWindows() && CommSelectorEnabled;
         
         // CAN ID Filter
         private int? _canIdFilter;

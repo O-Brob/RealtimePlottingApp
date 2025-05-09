@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using RealtimePlottingApp.Models;
 
@@ -13,6 +14,10 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
         private int _uniqueVars = 1; // 1 Variable as default. Could change alongside UI config.
         private bool _plotFullHistory; // False default
         private double _windowWidth = 75; // X-Axis unit width (how many points to show) 
+        
+        // --- Buffers to avoid torturing the heap --- //
+        private double[] _xBuffer = [];
+        private double[] _yBuffer = [];
 
         public GraphDataService(GraphDataModel graphData)
         {
@@ -54,10 +59,55 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
             lock (_graphData)
             {
                 int totalPoints = _graphData.XData.Count;
+                
+                // Simple check whether duplicates exist, to help deciding normal trigger window size adjustments.
+                int expected = 100 / _uniqueVars;
+                int actual = new HashSet<uint>(_graphData.XData.Skip(totalPoints - 100)).Count;
+                bool dupesExist = actual < expected * 0.85 || actual > expected * 1.15;
+                
                 // Determine candidate for where to start plotting data from on this UI update.
-                int candidate = (!_plotFullHistory && totalPoints > (int)_windowWidth * _uniqueVars)
-                    ? totalPoints - ((int)_windowWidth * _uniqueVars + 1)
-                    : 0;
+                int candidate = 0;
+
+                if (!_plotFullHistory && totalPoints > (int)(_windowWidth * _uniqueVars))
+                {
+                    // Set initial candidate
+                    candidate = totalPoints - ((int)_windowWidth * _uniqueVars + 1);
+                    candidate = Math.Max(0, candidate);
+
+                    uint targetTimestamp = _graphData.XData[^1];
+                    uint cutoffGuess = _graphData.XData[candidate];
+
+                    // If initial candidat isn't spaced enough (#points > one per timestamp), search backwards
+                    if (targetTimestamp - cutoffGuess < _windowWidth)
+                    {
+                        uint cutoff = targetTimestamp > (uint)_windowWidth
+                            ? targetTimestamp - (uint)_windowWidth
+                            : 0;
+
+                        // Binary search for last value <= cutoff
+                        int low = 0;
+                        int high = totalPoints - 1;
+                        int foundIndex = candidate;
+
+                        while (low <= high)
+                        {
+                            int mid = (low + high) / 2;
+                            uint ts = _graphData.XData[mid];
+
+                            if (ts <= cutoff)
+                            {
+                                foundIndex = mid;
+                                low = mid + 1;
+                            }
+                            else
+                            {
+                                high = mid - 1;
+                            }
+                        }
+
+                        candidate = foundIndex;
+                    }
+                }
 
                 // Indexes to determine subarray ranges for xDataDouble and yDataDouble
                 int startIndex;
@@ -76,8 +126,10 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
                             break;
 
                         case TriggerMode.Normal_Trigger:
-                            // Ensure candidate is always >= 0
-                            candidate = Math.Max(currentTriggerIndex.Value - ((int)_windowWidth * _uniqueVars), 0);
+                            // Ensure candidate is always >= 0. _uniqueVars+3 for extra variable headroom.
+                            candidate = !dupesExist 
+                                ? Math.Max(currentTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 2)), 0) 
+                                : Math.Max(currentTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 8)), 0);
                             // Since trigger occured and we do not use full array,
                             // adjust trigger index relative to the subarray we provide.
                             localTriggerIndex = currentTriggerIndex.Value - candidate;
@@ -94,22 +146,24 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
                     if (lastTriggerIndex.HasValue && triggerMode == TriggerMode.Normal_Trigger)
                     {
                         // Set candidate to the most recent trigger, such that the subarray x/yDataDouble
-                        // will be the most recent trigger and forward.
-                        candidate = Math.Max(lastTriggerIndex.Value - ((int)_windowWidth * _uniqueVars), 0);
+                        // will be the most recent trigger and forward. _uniqueVars+3 for extra variable headroom.
+                        candidate = !dupesExist 
+                            ? Math.Max(lastTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 2)), 0) 
+                            : Math.Max(lastTriggerIndex.Value - ((int)_windowWidth * (_uniqueVars * 8)), 0);
                         // set triggerindex relative to the subarray from the last trigger.
                         localTriggerIndex = lastTriggerIndex.Value - candidate;
 
                         // Limit number of points when no new trigger occurs to stay performant
                         startIndex = candidate - (candidate % _uniqueVars);
-                        if (totalPoints >= startIndex + ((int)_windowWidth * _uniqueVars))
-                        {
-                            endIndex = startIndex + 2 * (int)_windowWidth * _uniqueVars;
-                            endIndex = Math.Min(endIndex, totalPoints - (totalPoints % _uniqueVars));
-                        }
+                        
+                        // Limit the size of the plotted slice to a smaller window for performance
+                        int maxPointsToPlot;
+                        if (!dupesExist)
+                            maxPointsToPlot = 2 * (int)_windowWidth * (_uniqueVars * 2);
                         else
-                        {
-                            endIndex = totalPoints;
-                        }
+                            maxPointsToPlot = 2 * (int)_windowWidth * (_uniqueVars * 8);
+                        endIndex = Math.Min(startIndex + maxPointsToPlot, totalPoints);
+                        endIndex -= endIndex % _uniqueVars; // Align to variable interleaving.
                     }
                     else // Fallback for no trigger & no history mode
                     {
@@ -132,18 +186,23 @@ namespace RealtimePlottingApp.Services.Plotting.LineGraph
                         localTriggerIndex = lastTriggerIndex.Value;
                     }
                 }
+                
+                int count = endIndex - startIndex;
 
-                xDataDouble = _graphData.XData
-                    .Skip(startIndex)
-                    .Take(endIndex - startIndex)
-                    .Select(val => (double)val)
-                    .ToArray();
+                if (_xBuffer.Length != count)
+                {
+                    _xBuffer = new double[count];
+                    _yBuffer = new double[count];
+                }
 
-                yDataDouble = _graphData.YData
-                    .Skip(startIndex)
-                    .Take(endIndex - startIndex)
-                    .Select(val => (double)val)
-                    .ToArray();
+                for (int i = 0; i < count; i++)
+                {
+                    _xBuffer[i] = _graphData.XData[startIndex + i];
+                    _yBuffer[i] = _graphData.YData[startIndex + i];
+                }
+
+                xDataDouble = _xBuffer;
+                yDataDouble = _yBuffer;
 
                 // Fallback in case index is out of the arroy
                 if (localTriggerIndex < 0 || localTriggerIndex >= xDataDouble.Length)
