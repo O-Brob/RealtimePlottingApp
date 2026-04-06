@@ -18,78 +18,78 @@ Note that the required LL drivers and STM32 firmware are not included and must b
 
 ---
 
-## 🗂️ Table of Contents
+## Table of Contents
 
-1. [🎉 Features](#-features)  
-2. [📦 Self-contained Releases](#-self-contained-releases)
-3. [💾 Manual Installation](#-manual-installation)
-4. [🙋 User Guide](#-user-guide)
-5. [📄 License](#-license)  
+1. [Features](#-features)  
+2. [Self-contained Releases](#-self-contained-releases)
+3. [Manual Installation](#-manual-installation)
+4. [User Guide](#-user-guide)
+5. [License](#-license)  
 
 ---
 
-## 🎉 Features
+## Features
 
-- 🖥️ **Multi‑Platform CAN/UART Support**  
+- **Multi‑Platform CAN/UART Support**  
   - SocketCAN interface on Linux
   - Peak Systems CAN on Windows ([PEAK-System CAN drivers](https://www.peak-system.com/Drivers.523.0.html?&L=1) required)
   - C# SerialPort w/ BaseStream for efficient UART
 
-- 📈 **Real‑Time Plotting**  
+- **Real‑Time Plotting**  
   - Live CAN & UART data reading streams with sub‑millisecond latency
   - CAN data is timestamped at receival, to allow connecting to a can-bus without extra configuration
   - UART data is timestamped at transmission using the format in the provided C library, to allow higher accuracy
   - Supports plotting of multiple variables at once
   - Threaded architecture for smooth rendering at high data rates
 
-- ⚙️ **Highly Configurable UI**  
-  - ⏱️ Adjust update frequency on‑the‑fly  
-  - 🎚️ Change how many variables display simultaneously  
-  - 👁️‍🗨️ Toggle visibility of individual variables  
-  - ✏️ Rename variables, and see them in a legend
-  - 🎨 Color-coded variables using the [coloropt](https://tsitsul.in/blog/coloropt/) palette — optimized for print and colorblind accessibility
+- **Highly Configurable UI**  
+  - Adjust update frequency on‑the‑fly  
+  - Change how many variables display simultaneously  
+  - Toggle visibility of individual variables  
+  - Rename variables, and see them in a legend
+  - Color-coded variables using the [coloropt](https://tsitsul.in/blog/coloropt/) palette — optimized for print and colorblind accessibility
 
-- 🔍 **Interactive Plot Controls**  
+- **Interactive Plot Controls**  
   - Right‑click drag to zoom X and/or Y axes independently
-  - 📐 Auto‑scale view to fit all points with middle mouse button 
-  - 🔄 Double‑click graph to display current render time and FPS
-  - 📷 Right click to save current view as an image file 
-  - 🔎 Box zoom by holding down middle mouse button
+  - Auto‑scale view to fit all points with middle mouse button 
+  - Double‑click graph to display current render time and FPS
+  - Right click to save current view as an image file 
+  - Box zoom by holding down middle mouse button
 
-- 🔄 **History Mode**  
+- **History Mode**  
   - Automatically enter “History Mode” on disconnect  
   - Pan & zoom through all buffered data
 
-- 🎯 **Triggering**  
+- **Triggering**  
   - Rising‑edge triggers in **Single Trigger** & **Normal Trigger** modes  
-  - 💎 Diamond marker highlights the trigger point  
-  - ✅ Choose which variables can fire triggers
-  - 🎛️ Draggable trigger‑level line on the Y-Axis with live feedback 
+  - Diamond marker highlights the trigger point  
+  - Choose which variables can fire triggers
+  - Draggable trigger‑level line on the Y-Axis with live feedback 
 
-- 🛠️ **Robust Communication Interface**  
+- **Robust Communication Interface**  
   - Footer‑mounted connection status & error messages  
   - Built‑in input validation for CAN/UART parameters  
-  - 📡 Seamless handling of UART timestamp overflows
+  - Seamless handling of UART timestamp overflows
 
-- 🧱 **Block Diagram Visualization**  
+- **Block Diagram Visualization**  
   - Each plotted variable can be shown in a block diagram as its own block on the X-axis  
   - Block height on the Y-axis represents the most recently read value for the variable  
   - Provides a simpler comparison of current values at a glance, without tracing the line graph
 
-- 💾 **Communication Interface Config Persistence**  
+- **Communication Interface Config Persistence**  
   - Save CAN and UART configuration parameters to a config file  
   - Load saved configs via a file-explorer dialog to quickly ready the application for connection  
   - Eliminates repetitive manual entry of parameters when working in the same microcontroller traffic environment
 
-- 🏗️ **Reactive MVVM Architecture**  
+- **Reactive MVVM Architecture**  
   - Built with AvaloniaUI & ReactiveUI  
   - Sidebar for interface & centralized plot configuration  
   - Header toggle to show/hide sidebar or plots  
-  - 💡 Tooltips on nearly every control element
+  - Tooltips on nearly every control element
 
 ---
 
-## 📦 Self-contained Releases
+## Self-contained Releases
 
 Self‑contained binaries for the latest release.
 
@@ -100,14 +100,14 @@ Self‑contained binaries for the latest release.
 
 ---
 
-## 💾 Manual Installation
+## Manual Installation
 
-### 🔧 Prerequisites
+### Prerequisites
 
 - [.NET 9.0 SDK or later](https://dotnet.microsoft.com/download)  
 - Supported platforms: **Linux** and **Windows**
 
-### 📥 Clone & Build
+### Clone & Build
 ```bash
 git clone https://github.com/O-Brob/RealtimePlottingApp.git
 cd RealtimePlottingApp
@@ -115,7 +115,7 @@ dotnet restore
 dotnet build -c Release
 ```
 
-### 🚀 Publish & Run
+### Publish & Run
 Linux x64:
 ```bash
 dotnet publish RealtimePlottingApp \
@@ -144,7 +144,7 @@ cd .\publish\win-x64
 
 ---
 
-## 📝 User Guide
+## User Guide
 
 ### 1. Quick Start
 0. If UART is being used, configure the embedded system to store and flush data using the provided UART C library.
@@ -203,12 +203,12 @@ cd .\publish\win-x64
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.  
 See the full text in the [LICENSE.md](LICENSE.md) file in the repository root.
 
-### 🔗 Third‑Party Licenses & Notices
+### Third‑Party Licenses & Notices
 
 Bundled dependencies and their licenses are listed in [third-party-licenses.md](third-party-licenses.md).
 
