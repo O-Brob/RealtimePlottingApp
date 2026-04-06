@@ -20,11 +20,11 @@ Note that the required LL drivers and STM32 firmware are not included and must b
 
 ## Table of Contents
 
-1. [Features](#-features)  
-2. [Self-contained Releases](#-self-contained-releases)
-3. [Manual Installation](#-manual-installation)
-4. [User Guide](#-user-guide)
-5. [License](#-license)  
+1. [Features](#features)  
+2. [Self-contained Releases](#self-contained-releases)
+3. [Manual Installation](#manual-installation)
+4. [User Guide](#user-guide)
+5. [License](#license)  
 
 ---
 
